@@ -3,870 +3,267 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Audio Visualizer</title>
+    <title>Tiner's Visualizer - Pro Edition</title>
     <style>
         :root {
-            --primary: #6d28d9;
-            --primary-hover: #5b21b6;
-            --secondary: #10b981;
-            --dark: #1f2937;
-            --light: #f9fafb;
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --accent: #10b981;
+            --text: #ffffff;
         }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            line-height: 1.6;
-            color: #333;
+
+        body, html {
             margin: 0;
             padding: 0;
-            background-color: #f0f4f8;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-        
-        h1 {
-            text-align: center;
-            color: var(--dark);
-            margin-bottom: 2rem;
-        }
-        
-        .upload-section {
-            background-color: white;
-            border-radius: 8px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        
-        .visualizer-section {
-            background-color: white;
-            border-radius: 8px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            display: none;
-        }
-        
-        .control-panel {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .control-group {
-            margin-bottom: 1rem;
-        }
-        
-        .control-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
-        
-        .canvas-container {
             width: 100%;
-            height: 400px;
-            position: relative;
-            background-color: #000;
-            border-radius: 8px;
+            height: 100%;
             overflow: hidden;
+            background-color: #000;
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text);
         }
-        
-        canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
+
+        #visualizer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
         }
-        
-        button {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: background-color 0.2s;
+
+        .ui-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 300px;
+            z-index: 10;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
-        
-        button:hover {
-            background-color: var(--primary-hover);
-        }
-        
-        input[type="file"],
-        select {
-            padding: 0.5rem;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 100%;
-        }
-        
-        .audio-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin: 1rem 0;
-        }
-        
-        .progress-container {
-            flex-grow: 1;
-            margin: 0 1rem;
-            height: 8px;
-            background-color: #e5e7eb;
-            border-radius: 4px;
-            position: relative;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            background-color: var(--secondary);
-            border-radius: 4px;
-            width: 0%;
-        }
-        
-        .time-display {
-            font-size: 0.875rem;
-            font-family: monospace;
-            min-width: 80px;
-        }
-        
-        .color-picker {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-top: 0.5rem;
-        }
-        
-        .color-option {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-        
-        .color-option.selected {
-            border-color: var(--dark);
-            transform: scale(1.1);
-        }
-        
-        .play-pause-btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: var(--secondary);
-        }
-        
-        .play-pause-btn:hover {
-            background-color: #0da271;
-        }
-        
-        .info-text {
+
+        .upload-area {
             text-align: center;
-            font-style: italic;
-            color: #666;
-            margin: 1rem 0;
-        }
-        
-        .slider-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .slider-container input {
-            flex-grow: 1;
-        }
-        
-        .slider-value {
-            min-width: 40px;
-            text-align: right;
-        }
-        
-        @media (max-width: 768px) {
-            .control-panel {
-                grid-template-columns: 1fr;
-            }
-            
-            .canvas-container {
-                height: 300px;
-            }
-        }
-    </style>
-    <style>
-        .playlist-section {
-            background-color: white;
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-            margin-bottom: 1.5rem;
-        }
-
-        .playlist-section h2 {
-            margin-top: 0;
-            color: var(--dark);
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-        }
-
-        #playlist {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            max-height: 200px; /* Limit height for scrollability */
-            overflow-y: auto;
-        }
-
-        #playlist li {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #eee;
+            padding: 20px;
+            border: 2px dashed var(--glass-border);
+            border-radius: 12px;
             cursor: pointer;
-            transition: background-color 0.2s;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
-        #playlist li:last-child {
-            border-bottom: none;
-        }
+        h2 { margin-top: 0; font-size: 1.1rem; font-weight: 400; margin-bottom: 15px; }
 
-        #playlist li:hover {
-            background-color: #f0f4f8;
-        }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-size: 0.75rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
 
-        #playlist li.active {
-            background-color: var(--primary);
+        select, input[type="range"], button {
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid var(--glass-border);
             color: white;
-        }
-        
-        #playlist li.active .track-duration {
-            color: #fff;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
         }
 
-        .track-info {
-            flex-grow: 1;
-        }
-        
-        .track-duration {
-            font-size: 0.8em;
-            color: #666;
-            margin-left: 10px;
+        button:hover { background: var(--accent); border-color: var(--accent); }
+
+        .auto-badge {
+            background: var(--accent);
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            float: right;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Interactive Audio Visualizer</h1>
+    <canvas id="visualizer"></canvas>
+
+    <div class="ui-overlay" id="uiOverlay">
+        <h2 id="nowPlaying">Visualizer Ready</h2>
         
-        <div class="upload-section" id="uploadSection">
-            <p>Upload an audio file to begin</p>
-            <input type="file" id="audioFile" accept="audio/*" multiple>
-            <p class="info-text">Supported formats: MP3, WAV, OGG, FLAC, etc. (Select multiple files to create a playlist)</p>
+        <div id="setupView">
+            <div class="upload-area" onclick="document.getElementById('audioFile').click()">
+                Drop tracks or click to load
+                <input type="file" id="audioFile" accept="audio/*" multiple style="display:none">
+            </div>
         </div>
-        
-        <div class="visualizer-section" id="visualizerSection">
-            <div class="audio-controls">
-                <button class="play-pause-btn" id="playPauseBtn">▶</button>
-                <div class="time-display" id="currentTime">0:00</div>
-                <div class="progress-container" id="progressContainer">
-                    <div class="progress-bar" id="progressBar"></div>
-                </div>
-                <div class="time-display" id="duration">0:00</div>
+
+        <div id="mainView" style="display:none">
+            <div class="control-group">
+                <button id="playPauseBtn">PAUSE</button>
             </div>
-            
-            <div class="playlist-section" id="playlistSection">
-                <h2>Playlist</h2>
-                <ul id="playlist">
-                    <!-- Playlist items will be added here by JavaScript -->
-                </ul>
+
+            <div class="control-group">
+                <label>Mode <span class="auto-badge" id="autoTag">Auto-Rotating</span></label>
+                <select id="visualizationType">
+                    <option value="kaleidoscope">Kaleidoscope</option>
+                    <option value="bars">Frequency Bars</option>
+                    <option value="wave">Waveform</option>
+                    <option value="particles">Particles</option>
+                </select>
             </div>
-            
-            <div class="control-panel">
-                <div class="control-group">
-                    <label for="visualizationType">Visualization Type</label>
-                    <select id="visualizationType">
-                        <option value="bars">Frequency Bars</option>
-                        <option value="wave">Waveform</option>
-                        <option value="circular">Circular</option>
-                        <option value="particles">Particles</option>
-                        <option value="spectrum">Spectrum</option>
-                    </select>
-                </div>
-                
-                <div class="control-group">
-                    <label for="sensitivity">Sensitivity</label>
-                    <div class="slider-container">
-                        <input type="range" id="sensitivity" min="1" max="10" value="5">
-                        <span class="slider-value" id="sensitivityValue">5</span>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <label for="barCount">Detail Level</label>
-                    <div class="slider-container">
-                        <input type="range" id="barCount" min="16" max="256" step="16" value="64">
-                        <span class="slider-value" id="barCountValue">64</span>
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <label>Color Theme</label>
-                    <div class="color-picker" id="colorPicker">
-                        <div class="color-option selected" data-color="gradient1" style="background: linear-gradient(to right, #ff9966, #ff5e62);"></div>
-                        <div class="color-option" data-color="gradient2" style="background: linear-gradient(to right, #4776E6, #8E54E9);"></div>
-                        <div class="color-option" data-color="gradient3" style="background: linear-gradient(to right, #00F260, #0575E6);"></div>
-                        <div class="color-option" data-color="gradient4" style="background: linear-gradient(to right, #f857a6, #ff5858);"></div>
-                        <div class="color-option" data-color="gradient5" style="background: linear-gradient(to right, #1D976C, #93F9B9);"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="canvas-container">
-                <canvas id="visualizer"></canvas>
+
+            <div class="control-group">
+                <label>Sensitivity</label>
+                <input type="range" id="sensitivity" min="1" max="15" value="8">
             </div>
         </div>
     </div>
-    
+
     <script>
-        // DOM Elements
-        const uploadSection = document.getElementById('uploadSection');
-        const visualizerSection = document.getElementById('visualizerSection');
-        const audioFileInput = document.getElementById('audioFile');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        const progressBar = document.getElementById('progressBar');
-        const progressContainer = document.getElementById('progressContainer');
-        const currentTimeDisplay = document.getElementById('currentTime');
-        const durationDisplay = document.getElementById('duration');
-        const visualizationTypeSelect = document.getElementById('visualizationType');
-        const sensitivityInput = document.getElementById('sensitivity');
-        const sensitivityValue = document.getElementById('sensitivityValue');
-        const barCountInput = document.getElementById('barCount');
-        const barCountValue = document.getElementById('barCountValue');
-        const colorPicker = document.getElementById('colorPicker');
         const canvas = document.getElementById('visualizer');
         const ctx = canvas.getContext('2d');
-        
-        // New elements for playlist
-        const playlistSection = document.getElementById('playlistSection');
-        const playlistUL = document.getElementById('playlist');
+        const typeSelect = document.getElementById('visualizationType');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        let audioContext, analyser, dataArray, source, audio;
+        let isAutoRotating = true;
+        let lastRotationTime = Date.now();
 
-        // Audio context
-        let audioContext;
-        let audioSource;
-        let analyser;
-        let audio;
-        let dataArray;
-        let bufferLength;
-        let isPlaying = false;
-        let animationId;
-        let gradientColors = {
-            gradient1: ['#ff9966', '#ff5e62'],
-            gradient2: ['#4776E6', '#8E54E9'],
-            gradient3: ['#00F260', '#0575E6'],
-            gradient4: ['#f857a6', '#ff5858'],
-            gradient5: ['#1D976C', '#93F9B9']
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.onresize = resize;
+        resize();
+
+        document.getElementById('audioFile').onchange = function(e) {
+            const files = e.target.files;
+            if(files.length > 0) {
+                initAudio(files[0]);
+                document.getElementById('setupView').style.display = 'none';
+                document.getElementById('mainView').style.display = 'block';
+                document.getElementById('nowPlaying').innerText = files[0].name.substring(0, 25);
+            }
         };
-        let selectedGradient = 'gradient1';
-        let particles = [];
-        
-        // Playlist data
-        let playlistFiles = [];
-        let currentTrackIndex = -1;
-        
-        // Initialize canvas size
-        function initCanvas() {
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
-        }
-        
-        window.addEventListener('resize', initCanvas);
-        initCanvas();
-        
-        // Audio file input change handling
-        audioFileInput.addEventListener('change', function () {
-            // Add newly selected files to playlistFiles
-            for (let i = 0; i < this.files.length; i++) {
-                playlistFiles.push(this.files[i]);
-            }
-            
-            loadPlaylist();
-            
-            // If no track is currently playing, or if it's the first upload, play the first new file
-            if (currentTrackIndex === -1 && playlistFiles.length > 0) {
-                playTrack(0);
-            } else if (this.files.length > 0) {
-                // If tracks are already playing, just add to playlist and don't interrupt
-                // Optionally, we could choose to play the newly added track, but for now, we'll continue the current track
-            }
-            
-            uploadSection.style.display = 'none';
-            visualizerSection.style.display = 'block';
-            this.value = ''; // Clear input to allow re-uploading same files
-        });
 
-        // Function to load and play a specific track from the playlist
-        function playTrack(index) {
-            if (index < 0 || index >= playlistFiles.length) return;
-            
-            // Pause current audio if playing
-            if (audio && isPlaying) {
-                audio.pause();
-            }
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-            
-            currentTrackIndex = index;
-            const file = playlistFiles[currentTrackIndex];
-            
-            // Update active class in playlist
-            document.querySelectorAll('#playlist li').forEach((item, idx) => {
-                if (idx === currentTrackIndex) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
-                }
-            });
-
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            audio = new Audio();
-            audio.src = URL.createObjectURL(file);
-            
-            audio.addEventListener('loadedmetadata', function () {
-                updateDuration(audio.duration);
-                setupAudioNodes();
-                playPauseAudio();
-            });
-
-            audio.addEventListener('timeupdate', function () {
-                const progress = (audio.currentTime / audio.duration) * 100;
-                progressBar.style.width = `${progress}%`;
-                updateCurrentTime(audio.currentTime);
-            });
-
-            audio.addEventListener('ended', function () {
-                playPauseBtn.textContent = '▶';
-                isPlaying = false;
-                cancelAnimationFrame(animationId);
-                
-                // Play next track if available
-                if (currentTrackIndex < playlistFiles.length - 1) {
-                    playTrack(currentTrackIndex + 1);
-                } else {
-                    // Loop or stop at the end of the playlist
-                    // For now, let's stop
-                    currentTrackIndex = -1; // Reset playlist
-                    loadPlaylist(); // Refresh playlist UI
-                }
-            });
-        }
-
-        // Function to populate the playlist UI
-        function loadPlaylist() {
-            playlistUL.innerHTML = ''; // Clear current playlist display
-            playlistFiles.forEach((file, index) => {
-                const listItem = document.createElement('li');
-                listItem.dataset.index = index; // Store index for easy access
-                
-                // Use a temporary audio object to get duration (not ideal for many files, but works for now)
-                const tempAudio = new Audio();
-                tempAudio.src = URL.createObjectURL(file);
-                tempAudio.addEventListener('loadedmetadata', function() {
-                    listItem.innerHTML = `\n                        <span class="track-info">${file.name}</span>\n                        <span class="track-duration">${formatTime(tempAudio.duration)}</span>\n                    `;
-                }, { once: true }); // Listen once to prevent memory leaks
-
-                listItem.addEventListener('click', () => playTrack(index));
-                
-                if (index === currentTrackIndex) {
-                    listItem.classList.add('active');
-                }
-                playlistUL.appendChild(listItem);
-            });
-        }
-        
-        // Set up audio nodes
-        function setupAudioNodes() {
-            if (audioSource) {
-                audioSource.disconnect();
-            }
-            
-            audioSource = audioContext.createMediaElementSource(audio);
-            analyser = audioContext.createAnalyser();
-            
-            // Connect nodes: source -> analyser -> destination
-            audioSource.connect(analyser);
-            analyser.connect(audioContext.destination);
-            
-            // Set up analyser
-            analyser.fftSize = 2048;
-            bufferLength = analyser.frequencyBinCount;
-            dataArray = new Uint8Array(bufferLength);
-        }
-        
-        // Play/Pause button
-        playPauseBtn.addEventListener('click', playPauseAudio);
-        
-        function playPauseAudio() {
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            
-            if (!isPlaying) {
+        playPauseBtn.onclick = function() {
+            if (audio.paused) {
                 audio.play();
-                playPauseBtn.textContent = '❚❚';
-                isPlaying = true;
-                visualize();
+                playPauseBtn.innerText = "PAUSE";
             } else {
                 audio.pause();
-                playPauseBtn.textContent = '▶';
-                isPlaying = false;
-                cancelAnimationFrame(animationId);
+                playPauseBtn.innerText = "PLAY";
             }
+        };
+
+        function initAudio(file) {
+            if(audio) audio.pause();
+            audio = new Audio(URL.createObjectURL(file));
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            source = audioContext.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            analyser.fftSize = 1024;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            audio.play();
+            draw();
         }
-        
-        // Progress bar click handling
-        progressContainer.addEventListener('click', function(e) {
-            const rect = progressContainer.getBoundingClientRect();
-            const clickPosition = (e.clientX - rect.left) / rect.width;
-            audio.currentTime = clickPosition * audio.duration;
-        });
-        
-        // Format time display
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
-        }
-        
-        function updateCurrentTime(time) {
-            currentTimeDisplay.textContent = formatTime(time);
-        }
-        
-        function updateDuration(duration) {
-            durationDisplay.textContent = formatTime(duration);
-        }
-        
-        // Color picker handling
-        colorPicker.addEventListener('click', function(e) {
-            if (e.target.classList.contains('color-option')) {
-                // Remove selected class from all options
-                document.querySelectorAll('.color-option').forEach(option => {
-                    option.classList.remove('selected');
-                });
-                
-                // Add selected class to clicked option
-                e.target.classList.add('selected');
-                
-                // Update selected gradient
-                selectedGradient = e.target.dataset.color;
+
+        function draw() {
+            requestAnimationFrame(draw);
+            
+            // Mode handling
+            if(isAutoRotating && Date.now() - lastRotationTime > 15000) {
+                typeSelect.selectedIndex = (typeSelect.selectedIndex + 1) % typeSelect.options.length;
+                lastRotationTime = Date.now();
             }
-        });
-        
-        // Sensitivity input handling
-        sensitivityInput.addEventListener('input', function() {
-            sensitivityValue.textContent = this.value;
-        });
-        
-        // Bar count input handling
-        barCountInput.addEventListener('input', function() {
-            barCountValue.textContent = this.value;
-        });
-        
-        // Visualization logic
-        function visualize() {
-            const type = visualizationTypeSelect.value;
-            const sensitivity = parseFloat(sensitivityInput.value);
-            const barCount = parseInt(barCountInput.value);
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Get frequency data
-            analyser.getByteFrequencyData(dataArray);
-            
-            // Choose visualization based on type
-            switch (type) {
-                case 'bars':
-                    drawBars(sensitivity, barCount);
-                    break;
-                case 'wave':
-                    drawWaveform(sensitivity);
-                    break;
-                case 'circular':
-                    drawCircular(sensitivity, barCount);
-                    break;
-                case 'particles':
-                    drawParticles(sensitivity, barCount);
-                    break;
-                case 'spectrum':
-                    drawSpectrum(sensitivity, barCount);
-                    break;
-            }
-            
-            animationId = requestAnimationFrame(visualize);
-        }
-        
-        // Create gradient based on selected colors
-        function createGradient(x, y, width, height, vertical = false) {
-            const colors = gradientColors[selectedGradient];
-            let gradient;
-            
-            if (vertical) {
-                gradient = ctx.createLinearGradient(x, y, x, y + height);
+
+            // Waveform needs Time Domain Data, others need Frequency
+            if (typeSelect.value === 'wave') {
+                analyser.getByteTimeDomainData(dataArray);
             } else {
-                gradient = ctx.createLinearGradient(x, y, x + width, y);
+                analyser.getByteFrequencyData(dataArray);
             }
-            
-            gradient.addColorStop(0, colors[0]);
-            gradient.addColorStop(1, colors[1]);
-            
-            return gradient;
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const mode = typeSelect.value;
+            if(mode === 'kaleidoscope') drawKaleidoscope();
+            else if(mode === 'bars') drawBars();
+            else if(mode === 'particles') drawParticles();
+            else if(mode === 'wave') drawWave();
         }
-        
-        // Bars visualization
-        function drawBars(sensitivity, barCount) {
-            const barWidth = canvas.width / barCount;
-            const heightMultiplier = sensitivity * 2;
-            
-            for (let i = 0; i < barCount; i++) {
-                // Use logarithmic distribution for frequencies to better match human hearing
-                const index = Math.floor(Math.pow(i / barCount, 2) * bufferLength);
-                const barHeight = (dataArray[index] / 255) * canvas.height * heightMultiplier;
-                
-                // Skip drawing very small bars
-                if (barHeight < 1) continue;
-                
-                const x = i * barWidth;
-                const y = canvas.height - barHeight;
-                
-                ctx.fillStyle = createGradient(x, y, barWidth, barHeight, true);
-                ctx.fillRect(x, y, barWidth - 1, barHeight);
-            }
-        }
-        
-        // Waveform visualization
-        function drawWaveform(sensitivity) {
-            analyser.getByteTimeDomainData(dataArray);
-    
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = createGradient(0, 0, canvas.width, 0);
-            ctx.beginPath();
-    
-            const sliceWidth = canvas.width / bufferLength;
-            let x = 0;
-    
-            for (let i = 0; i < bufferLength; i++) {
-                // Normalize the value around 0 (-1 to 1)
-                const normalized = (dataArray[i] / 128.0) - 1.0;
-                // Center it at height/2 and scale by sensitivity
-                const y = (canvas.height / 2) + (normalized * (canvas.height / 2) * (sensitivity / 5));
-        
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
+
+        function drawKaleidoscope() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sides = 12;
+            const step = (Math.PI * 2) / sides;
+            const sens = document.getElementById('sensitivity').value;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            for (let i = 0; i < sides; i++) {
+                ctx.rotate(step);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                for (let j = 0; j < dataArray.length; j += 15) {
+                    const r = (dataArray[j] * sens) / 4;
+                    const x = Math.cos(j) * r;
+                    const y = Math.sin(j) * r;
                     ctx.lineTo(x, y);
                 }
+                ctx.strokeStyle = `hsl(${(Date.now()/40)%360}, 80%, 60%)`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawBars() {
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let x = 0;
+            const sens = document.getElementById('sensitivity').value / 5;
+
+            for(let i = 0; i < dataArray.length; i++) {
+                const h = dataArray[i] * sens;
+                ctx.fillStyle = `hsl(${(i + Date.now()/50)%360}, 70%, 50%)`;
+                ctx.fillRect(x, canvas.height - h, barWidth - 1, h);
+                x += barWidth;
+            }
+        }
+
+        function drawWave() {
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `hsl(${(Date.now()/20)%360}, 100%, 50%)`;
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width / dataArray.length;
+            let x = 0;
+
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
                 x += sliceWidth;
             }
-    
             ctx.lineTo(canvas.width, canvas.height / 2);
             ctx.stroke();
         }
-        
-        // Circular visualization
-        function drawCircular(sensitivity, barCount) {
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = Math.min(centerX, centerY) * 0.8;
-            const angleStep = (Math.PI * 2) / barCount;
-            
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, 5, 0, Math.PI * 2);
-            ctx.fillStyle = '#fff';
-            ctx.fill();
-            
-            for (let i = 0; i < barCount; i++) {
-                const index = Math.floor((i / barCount) * (bufferLength / 2));
-                const barHeight = (dataArray[index] / 255) * radius * sensitivity * 0.5;
-                
-                const angle = i * angleStep;
-                const x1 = centerX + Math.cos(angle) * (radius * 0.2);
-                const y1 = centerY + Math.sin(angle) * (radius * 0.2);
-                const x2 = centerX + Math.cos(angle) * (radius * 0.2 + barHeight);
-                const y2 = centerY + Math.sin(angle) * (radius * 0.2 + barHeight);
-                
-                ctx.lineWidth = 2;
-                const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
-                gradient.addColorStop(0, gradientColors[selectedGradient][0]);
-                gradient.addColorStop(1, gradientColors[selectedGradient][1]);
-                ctx.strokeStyle = gradient;
+
+        function drawParticles() {
+            const sens = document.getElementById('sensitivity').value;
+            for(let i=0; i < 30; i++) {
+                const val = dataArray[i * 4];
+                const x = (Math.sin(i + Date.now()/1000) * canvas.width/4) + canvas.width/2;
+                const y = (Math.cos(i + Date.now()/1000) * canvas.height/4) + canvas.height/2;
                 
                 ctx.beginPath();
-                ctx.moveTo(x1, y1);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
-            }
-        }
-        
-        // Particle system for particle visualization
-        class Particle {
-            constructor(x, y, size, color, speedX, speedY, life) {
-                this.x = x;
-                this.y = y;
-                this.size = size;
-                this.color = color;
-                this.speedX = speedX;
-                this.speedY = speedY;
-                this.life = life;
-                this.opacity = 1;
-            }
-            
-            update() {
-                this.x += this.speedX;
-                this.y += this.speedY;
-                this.life -= 0.01;
-                this.opacity = this.life;
-                
-                if (this.size > 0.2) {
-                    this.size -= 0.1;
-                }
-            }
-            
-            draw(ctx) {
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = this.color.replace(')', `, ${this.opacity})`).replace('rgb', 'rgba');
+                ctx.arc(x + (Math.random()-0.5)*val, y + (Math.random()-0.5)*val, (val/10) * (sens/5), 0, Math.PI*2);
+                ctx.fillStyle = `hsla(${(val + Date.now()/50)%360}, 80%, 60%, 0.8)`;
                 ctx.fill();
             }
         }
-        
-        // Particles visualization
-        function drawParticles(sensitivity, particleCount) {
-            // Add new particles based on audio data
-            const avgAmp = getAverageAmplitude() * sensitivity * 0.5;
-            
-            if (avgAmp > 20) {
-                const particlesToAdd = Math.floor(avgAmp / 10);
-                
-                for (let i = 0; i < particlesToAdd; i++) {
-                    const size = Math.random() * avgAmp * 0.2 + 2;
-                    const x = canvas.width / 2;
-                    const y = canvas.height / 2;
-                    const angle = Math.random() * Math.PI * 2;
-                    const speed = Math.random() * avgAmp * 0.1 + 1;
-                    const speedX = Math.cos(angle) * speed;
-                    const speedY = Math.sin(angle) * speed;
-                    
-                    // Get a random color from the gradient
-                    const colors = gradientColors[selectedGradient];
-                    const color = colors[Math.floor(Math.random() * colors.length)];
-                    
-                    particles.push(new Particle(x, y, size, color, speedX, speedY, 1));
-                }
-            }
-            
-            // Update and draw existing particles
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].update();
-                particles[i].draw(ctx);
-                
-                // Remove dead particles
-                if (particles[i].life <= 0) {
-                    particles.splice(i, 1);
-                }
-            }
-            
-            // Limit the number of particles
-            if (particles.length > particleCount * 5) {
-                particles.splice(0, particles.length - particleCount * 5);
-            }
-        }
-        
-        function getAverageAmplitude() {
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                sum += dataArray[i];
-            }
-            return sum / bufferLength;
-        }
-        
-        // Spectrum visualization
-        function drawSpectrum(sensitivity, barCount) {
-            const barWidth = canvas.width / barCount;
-            const heightMultiplier = sensitivity * 2;
-            
-            // Create image data
-            const imageData = ctx.createImageData(canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            for (let i = 0; i < barCount; i++) {
-                // Use logarithmic distribution for frequencies
-                const index = Math.floor(Math.pow(i / barCount, 2) * bufferLength);
-                const amplitude = dataArray[index] / 255;
-                
-                // Map the frequency amplitude to a color
-                const colors = gradientColors[selectedGradient];
-                const startColor = hexToRgb(colors[0]);
-                const endColor = hexToRgb(colors[1]);
-                
-                // Interpolate between colors based on amplitude
-                const r = Math.floor(startColor.r + (endColor.r - startColor.r) * amplitude);
-                const g = Math.floor(startColor.g + (endColor.g - startColor.g) * amplitude);
-                const b = Math.floor(startColor.b + (endColor.b - startColor.b) * amplitude);
-                
-                // Calculate the position in the spectrum
-                const x = Math.floor(i * barWidth);
-                const height = Math.floor(amplitude * canvas.height * heightMultiplier);
-                
-                // Draw a vertical line of pixels
-                for (let y = Math.max(0, canvas.height - height); y < canvas.height; y++) {
-                    const pixelIndex = (y * canvas.width + x) * 4;
-                    data[pixelIndex] = r;
-                    data[pixelIndex + 1] = g;
-                    data[pixelIndex + 2] = b;
-                    data[pixelIndex + 3] = 255; // Alpha
-                }
-            }
-            
-            ctx.putImageData(imageData, 0, 0);
-        }
-        
-        // Helper function to convert hex to RGB
-        function hexToRgb(hex) {
-            // Handle shorthand hex
-            const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-            hex = hex.replace(shorthandRegex, function(m, r, g, b) {
-                return r + r + g + g + b + b;
-            });
-            
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? {
-                r: parseInt(result[1], 16),
-                g: parseInt(result[2], 16),
-                b: parseInt(result[3], 16)
-            } : { r: 0, g: 0, b: 0 };
-        }
-        
-        // Event listeners for visualization settings
-        visualizationTypeSelect.addEventListener('change', function() {
-            if (this.value === 'particles') {
-                particles = [];
-            }
-        });
     </script>
 </body>
 </html>

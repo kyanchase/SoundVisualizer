@@ -2,25 +2,13 @@
 
 **Date:** 2/20/2026, 11:29:20 AM (America/New_York, UTC-5:00)
 
-**Initial Setup & Enhancements:**
+**Log:**
 
-This project began with an existing interactive audio visualizer. The following enhancements were planned and implemented:
+Entry 1: Bug Fixes & UX Optimization (Feb 20, 2026)
+Waveform Logic Fix: Corrected the visualizer to pull ByteTimeDomainData for the waveform mode. Previously, it was attempting to map frequency data to a line graph, resulting in a flat or erratic line.
 
-1.  **Full-screen visuals and liquid glass toggles:**
-    *   Modified CSS to make the visualizer canvas take up the entire viewport (100vw, 100vh).
-    *   Applied CSS styles (`backdrop-filter: blur()`, `rgba` backgrounds, rounded borders, `box-shadow`) to the control panel and its elements to achieve a "liquid glass" effect.
-    *   Positioned the control panel with `position: fixed` to the top-right, ensuring it overlays the full-screen visualizer.
+Playback Controls: Integrated a Play/Pause state toggle into the main UI. Handled the HTMLAudioElement state to ensure the UI text stays in sync with the track status.
 
-2.  **Added new non-audio-reactive visualizations:**
-    *   Implemented a "Flow Field" visualization, which is a generative, non-audio-reactive effect.
-    *   Added "Flow Field" as a new option to the "Visualization Type" dropdown.
+Visual Refinement: Increased the Kaleidoscope segment count from 8 to 12 for higher geometric complexity and updated the particle system to react more aggressively to the low-end frequency spectrum (kick/bass).
 
-3.  **Implemented a kaleidoscope visualization:**
-    *   Developed a `drawKaleidoscope` function to create a repeating kaleidoscopic effect using canvas transformations.
-    *   Added "Kaleidoscope" as a new option to the "Visualization Type" dropdown.
-
-4.  **Automatic visualization rotation:**
-    *   Added an "Auto Rotate Visuals" checkbox to the control panel.
-    *   Implemented JavaScript logic to automatically cycle through the different visualization types every 15 seconds when the checkbox is enabled.
-
-Further updates will be logged here.
+Color Algorithms: Shifted all modes to use hsl() color calculations linked to the system clock (Date.now()), creating smooth, infinite color cycling without needing manual presets.

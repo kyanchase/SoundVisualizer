@@ -3,267 +3,755 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Visualizer</title>
+    <title>Synesthesia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --glass: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --accent: #10b981;
-            --text: #ffffff;
-        }
-
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             overflow: hidden;
-            background-color: #000;
-            font-family: 'Inter', -apple-system, sans-serif;
-            color: var(--text);
+            background: #000;
+            font-family: 'DM Sans', sans-serif;
+            color: #fff;
         }
 
         #visualizer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            position: fixed; inset: 0;
+            width: 100vw; height: 100vh;
             z-index: 1;
         }
 
-        .ui-overlay {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            width: 300px;
-            z-index: 10;
-            background: var(--glass);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 20px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        /* ── LANDING ─────────────────────────── */
+        #landing {
+            position: fixed; inset: 0;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #000;
         }
 
-        .upload-area {
-            text-align: center;
-            padding: 20px;
-            border: 2px dashed var(--glass-border);
-            border-radius: 12px;
+        .landing-title {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(2rem, 6vw, 5rem);
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            opacity: 0;
+            animation: fadeUp 0.9s 0.2s forwards;
+        }
+
+        .landing-sub {
+            font-size: 0.82rem;
+            font-weight: 300;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            margin-bottom: 60px;
+            opacity: 0;
+            animation: fadeUp 0.9s 0.45s forwards;
+        }
+
+        .source-cards {
+            display: flex;
+            gap: 20px;
+            opacity: 0;
+            animation: fadeUp 0.9s 0.7s forwards;
+        }
+
+        .card {
+            width: 180px; height: 180px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
             cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            transition: border-color 0.25s, background 0.25s, transform 0.2s;
+            user-select: none;
         }
-
-        h2 { margin-top: 0; font-size: 1.1rem; font-weight: 400; margin-bottom: 15px; }
-
-        .control-group { margin-bottom: 15px; }
-        label { display: block; font-size: 0.75rem; margin-bottom: 5px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
-
-        select, input[type="range"], button {
-            width: 100%;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid var(--glass-border);
-            color: white;
-            padding: 8px;
-            border-radius: 8px;
-            cursor: pointer;
+        .card:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.08);
+            transform: translateY(-5px);
         }
-
-        button:hover { background: var(--accent); border-color: var(--accent); }
-
-        .auto-badge {
-            background: var(--accent);
+        .card-icon { font-size: 2.4rem; line-height: 1; }
+        .card-label {
+            font-family: 'Space Mono', monospace;
             font-size: 0.6rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            float: right;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.55);
         }
+        .card-desc {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.28);
+            text-align: center;
+            padding: 0 14px;
+            line-height: 1.5;
+        }
+
+        /* Step 2: mode picker */
+        #modePicker {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        .mp-animate {
+            opacity: 0;
+            animation: fadeUp 0.6s forwards;
+        }
+        .mode-picker-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.3);
+        }
+        .mode-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .chip {
+            padding: 9px 20px;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 40px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.58rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: rgba(255,255,255,0.03);
+            color: rgba(255,255,255,0.5);
+            transition: all 0.2s;
+        }
+        .chip:hover, .chip.active {
+            border-color: rgba(255,255,255,0.7);
+            color: #fff;
+            background: rgba(255,255,255,0.09);
+        }
+        .go-btn {
+            margin-top: 6px;
+            padding: 13px 48px;
+            border: 1px solid rgba(255,255,255,0.28);
+            border-radius: 40px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: transparent;
+            color: #fff;
+            transition: all 0.2s;
+        }
+        .go-btn:hover { background: #fff; color: #000; }
+
+        #audioFile { display: none; }
+
+        /* ── HUD ─────────────────────────────── */
+        #hud {
+            position: fixed; inset: 0;
+            z-index: 50;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s;
+            display: none;
+        }
+        body:hover #hud { opacity: 1; }
+
+        #pauseBtn {
+            position: absolute;
+            bottom: 36px; left: 50%;
+            transform: translateX(-50%);
+            pointer-events: all;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.22);
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(12px);
+            color: rgba(255,255,255,0.65);
+            font-size: 1.05rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        #pauseBtn:hover { border-color: rgba(255,255,255,0.6); color: #fff; }
+
+        #modeHud {
+            position: absolute;
+            top: 24px; right: 24px;
+            pointer-events: all;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            align-items: flex-end;
+        }
+        .hud-chip {
+            padding: 5px 14px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 30px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.52rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(8px);
+            color: rgba(255,255,255,0.35);
+            transition: all 0.2s;
+        }
+        .hud-chip:hover, .hud-chip.active {
+            border-color: rgba(255,255,255,0.45);
+            color: rgba(255,255,255,0.85);
+        }
+
+        #aiWhisper {
+            position: absolute;
+            bottom: 42px; left: 32px;
+            pointer-events: none;
+            font-size: 0.7rem;
+            font-style: italic;
+            color: rgba(255,255,255,0.2);
+            max-width: 280px;
+            line-height: 1.5;
+            transition: color 0.8s;
+        }
+        #aiWhisper.fresh { color: rgba(255,255,255,0.5); }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeOut {
+            to { opacity: 0; }
+        }
+        #landing.leaving { animation: fadeOut 0.55s forwards; }
     </style>
 </head>
 <body>
-    <canvas id="visualizer"></canvas>
+<canvas id="visualizer"></canvas>
+<input type="file" id="audioFile" accept="audio/*">
 
-    <div class="ui-overlay" id="uiOverlay">
-        <h2 id="nowPlaying">Visualizer Ready</h2>
-        
-        <div id="setupView">
-            <div class="upload-area" onclick="document.getElementById('audioFile').click()">
-                Drop tracks or click to load
-                <input type="file" id="audioFile" accept="audio/*" multiple style="display:none">
-            </div>
+<!-- LANDING -->
+<div id="landing">
+    <div class="landing-title">Synesthesia</div>
+    <div class="landing-sub">Audio Visualizer</div>
+
+    <div class="source-cards" id="sourceCards">
+        <div class="card" id="cardMic">
+            <div class="card-icon">🎙️</div>
+            <div class="card-label">Microphone</div>
+            <div class="card-desc">Live input — ideal for mixing or performance</div>
         </div>
-
-        <div id="mainView" style="display:none">
-            <div class="control-group">
-                <button id="playPauseBtn">PAUSE</button>
-            </div>
-
-            <div class="control-group">
-                <label>Mode <span class="auto-badge" id="autoTag">Auto-Rotating</span></label>
-                <select id="visualizationType">
-                    <option value="kaleidoscope">Kaleidoscope</option>
-                    <option value="bars">Frequency Bars</option>
-                    <option value="wave">Waveform</option>
-                    <option value="particles">Particles</option>
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label>Sensitivity</label>
-                <input type="range" id="sensitivity" min="1" max="15" value="8">
-            </div>
+        <div class="card" id="cardFile">
+            <div class="card-icon">🎵</div>
+            <div class="card-label">Upload Track</div>
+            <div class="card-desc">Load a local audio file from your device</div>
         </div>
     </div>
 
-    <script>
-        const canvas = document.getElementById('visualizer');
-        const ctx = canvas.getContext('2d');
-        const typeSelect = document.getElementById('visualizationType');
-        const playPauseBtn = document.getElementById('playPauseBtn');
-        let audioContext, analyser, dataArray, source, audio;
-        let isAutoRotating = true;
-        let lastRotationTime = Date.now();
+    <div id="modePicker">
+        <div class="mode-picker-label mp-animate">Choose a visual mode</div>
+        <div class="mode-chips mp-animate" id="modeChips">
+            <div class="chip active" data-mode="bars">Frequency Bars</div>
+            <div class="chip" data-mode="kaleidoscope">Kaleidoscope</div>
+            <div class="chip" data-mode="wave">Waveform</div>
+            <div class="chip" data-mode="particles">Particles</div>
+            <div class="chip" data-mode="ribbons">Ribbons</div>
+        </div>
+        <button class="go-btn mp-animate" id="goBtn">Visualize →</button>
+    </div>
+</div>
 
-        function resize() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-        }
-        window.onresize = resize;
-        resize();
+<!-- HUD -->
+<div id="hud">
+    <div id="modeHud">
+        <div class="hud-chip active" data-mode="bars">Bars</div>
+        <div class="hud-chip" data-mode="kaleidoscope">Kaleidoscope</div>
+        <div class="hud-chip" data-mode="wave">Wave</div>
+        <div class="hud-chip" data-mode="particles">Particles</div>
+        <div class="hud-chip" data-mode="ribbons">Ribbons</div>
+    </div>
+    <button id="pauseBtn">⏸</button>
+    <div id="aiWhisper">—</div>
+</div>
 
-        document.getElementById('audioFile').onchange = function(e) {
-            const files = e.target.files;
-            if(files.length > 0) {
-                initAudio(files[0]);
-                document.getElementById('setupView').style.display = 'none';
-                document.getElementById('mainView').style.display = 'block';
-                document.getElementById('nowPlaying').innerText = files[0].name.substring(0, 25);
-            }
-        };
+<script>
+const canvas    = document.getElementById('visualizer');
+const ctx       = canvas.getContext('2d');
+const landing   = document.getElementById('landing');
+const hud       = document.getElementById('hud');
+const pauseBtn  = document.getElementById('pauseBtn');
+const aiWhisper = document.getElementById('aiWhisper');
 
-        playPauseBtn.onclick = function() {
-            if (audio.paused) {
-                audio.play();
-                playPauseBtn.innerText = "PAUSE";
-            } else {
-                audio.pause();
-                playPauseBtn.innerText = "PLAY";
-            }
-        };
+let analyser, dataArray, audioEl;
+let isPaused    = false;
+let currentMode = 'bars';
+let frame       = 0;
 
-        function initAudio(file) {
-            if(audio) audio.pause();
-            audio = new Audio(URL.createObjectURL(file));
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            source = audioContext.createMediaElementSource(audio);
-            source.connect(analyser);
-            analyser.connect(audioContext.destination);
-            analyser.fftSize = 1024;
-            dataArray = new Uint8Array(analyser.frequencyBinCount);
-            audio.play();
-            draw();
-        }
+const theme = { h1:160, h2:280, sat:80, lit:55, speed:1, complexity:1 };
+const tgt   = { h1:160, h2:280, sat:80, lit:55, speed:1, complexity:1 };
+const eHist = { bass:[], mid:[], high:[] };
+const HIST  = 90;
+let lastAiCall = 0;
+const AI_MS    = 22000;
+let aiPending  = false;
+let chosenSrc  = null;
 
-        function draw() {
-            requestAnimationFrame(draw);
-            
-            // Mode handling
-            if(isAutoRotating && Date.now() - lastRotationTime > 15000) {
-                typeSelect.selectedIndex = (typeSelect.selectedIndex + 1) % typeSelect.options.length;
-                lastRotationTime = Date.now();
-            }
+// Resize
+function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+window.addEventListener('resize', resize);
+resize();
 
-            // Waveform needs Time Domain Data, others need Frequency
-            if (typeSelect.value === 'wave') {
-                analyser.getByteTimeDomainData(dataArray);
-            } else {
-                analyser.getByteFrequencyData(dataArray);
-            }
+// ── LANDING LOGIC ─────────────────────────
+document.getElementById('cardMic').onclick = () => {
+    chosenSrc = 'mic';
+    showModePicker();
+};
+document.getElementById('cardFile').onclick = () => {
+    chosenSrc = 'file';
+    document.getElementById('audioFile').click();
+};
+document.getElementById('audioFile').onchange = e => {
+    if (e.target.files[0]) showModePicker();
+};
 
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+function showModePicker() {
+    document.getElementById('sourceCards').style.display = 'none';
+    const mp = document.getElementById('modePicker');
+    mp.style.display = 'flex';
+}
 
-            const mode = typeSelect.value;
-            if(mode === 'kaleidoscope') drawKaleidoscope();
-            else if(mode === 'bars') drawBars();
-            else if(mode === 'particles') drawParticles();
-            else if(mode === 'wave') drawWave();
-        }
+document.getElementById('modeChips').querySelectorAll('.chip').forEach(c => {
+    c.onclick = () => {
+        document.querySelectorAll('#modeChips .chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        currentMode = c.dataset.mode;
+    };
+});
 
-        function drawKaleidoscope() {
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const sides = 12;
-            const step = (Math.PI * 2) / sides;
-            const sens = document.getElementById('sensitivity').value;
+document.getElementById('goBtn').onclick = async () => {
+    try {
+        if (chosenSrc === 'mic') await initMic();
+        else await initFile(document.getElementById('audioFile').files[0]);
+        launch();
+    } catch(e) {
+        alert('Could not access audio: ' + e.message);
+    }
+};
 
+// ── AUDIO INIT ────────────────────────────
+async function initMic() {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 2048;
+    ac.createMediaStreamSource(stream).connect(analyser);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+}
+
+async function initFile(file) {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    audioEl = new Audio(URL.createObjectURL(file));
+    analyser = ac.createAnalyser();
+    analyser.fftSize = 2048;
+    const src = ac.createMediaElementSource(audioEl);
+    src.connect(analyser);
+    analyser.connect(ac.destination);
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    audioEl.play();
+}
+
+// ── LAUNCH ────────────────────────────────
+function launch() {
+    landing.classList.add('leaving');
+    syncHudMode();
+    setTimeout(() => {
+        landing.style.display = 'none';
+        hud.style.display = 'block';
+        draw();
+    }, 560);
+}
+
+// ── PAUSE ─────────────────────────────────
+pauseBtn.onclick = () => {
+    isPaused = !isPaused;
+    pauseBtn.textContent = isPaused ? '▶' : '⏸';
+    if (audioEl) isPaused ? audioEl.pause() : audioEl.play();
+};
+
+// ── HUD MODE CHIPS ────────────────────────
+document.getElementById('modeHud').querySelectorAll('.hud-chip').forEach(c => {
+    c.onclick = () => { currentMode = c.dataset.mode; syncHudMode(); };
+});
+function syncHudMode() {
+    document.querySelectorAll('.hud-chip').forEach(c =>
+        c.classList.toggle('active', c.dataset.mode === currentMode));
+}
+
+// ── ENERGY ────────────────────────────────
+function getEnergy(lo, hi) {
+    let s = 0;
+    for (let i = lo; i < hi; i++) s += dataArray[i];
+    return s / (hi - lo) / 255;
+}
+function avg(arr) { return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+// ── AI SCENE ──────────────────────────────
+async function callAI() {
+    if (aiPending) return;
+    aiPending = true;
+    const b = avg(eHist.bass).toFixed(2), m = avg(eHist.mid).toFixed(2), h = avg(eHist.high).toFixed(2);
+    const dom = +b > +m && +b > +h ? 'bass-heavy' : +h > +m ? 'bright/trebly' : 'midrange';
+    try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                model: "claude-sonnet-4-20250514",
+                max_tokens: 200,
+                messages: [{ role: "user", content:
+                    `You are a visual poet for a music visualizer. Return ONLY valid JSON, no markdown:\n{"scene":"one vivid evocative scene (e.g. 'solar flares arcing over a glass ocean')","h1":N,"h2":N,"sat":N,"lit":N,"speed":N,"complexity":N}\nh1,h2=0-360, sat=40-100, lit=40-70, speed=0.5-2.0, complexity=0.5-2.0\nAudio: bass=${b}, mid=${m}, high=${h}, character=${dom}`
+                }]
+            })
+        });
+        const data = await res.json();
+        const raw  = data.content.map(b=>b.text||'').join('').replace(/```json|```/g,'').trim();
+        const p    = JSON.parse(raw);
+        tgt.h1 = p.h1; tgt.h2 = p.h2;
+        tgt.sat        = Math.max(40, Math.min(100, p.sat));
+        tgt.lit        = Math.max(40, Math.min(70,  p.lit));
+        tgt.speed      = Math.max(0.5, Math.min(2.0, p.speed));
+        tgt.complexity = Math.max(0.5, Math.min(2.0, p.complexity));
+        aiWhisper.textContent = p.scene;
+        aiWhisper.classList.add('fresh');
+        setTimeout(() => aiWhisper.classList.remove('fresh'), 5000);
+    } catch(e) { /* silent */ }
+    finally { aiPending = false; }
+}
+
+// ── DRAW LOOP ─────────────────────────────
+function draw() {
+    requestAnimationFrame(draw);
+    if (isPaused || !analyser) return;
+    frame++;
+    const t = Date.now() / 1000;
+
+    analyser.getByteFrequencyData(dataArray);
+    const bass = getEnergy(0,8), mid = getEnergy(8,80), high = getEnergy(80,200);
+
+    if (frame % 2 === 0) {
+        eHist.bass.push(bass); eHist.mid.push(mid); eHist.high.push(high);
+        if (eHist.bass.length > HIST) { eHist.bass.shift(); eHist.mid.shift(); eHist.high.shift(); }
+    }
+
+    const now = Date.now();
+    if (now - lastAiCall > AI_MS && eHist.bass.length >= 20) { lastAiCall = now; callAI(); }
+
+    const s = 0.025;
+    for (const k of ['h1','h2','sat','lit','speed','complexity'])
+        theme[k] += (tgt[k] - theme[k]) * s;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (currentMode === 'wave') analyser.getByteTimeDomainData(dataArray);
+
+    if      (currentMode === 'bars')         drawBars(t);
+    else if (currentMode === 'kaleidoscope') drawKaleidoscope(t, bass);
+    else if (currentMode === 'wave')         drawWave(t);
+    else if (currentMode === 'particles')    drawParticles(t, bass);
+    else if (currentMode === 'ribbons')      drawRibbons(t, bass, mid, high);
+}
+
+function hue(b) { return theme.h1 + (theme.h2 - theme.h1) * b; }
+function col(b, a=1) { return `hsla(${hue(b)},${theme.sat}%,${theme.lit}%,${a})`; }
+
+// ── VISUALIZERS ───────────────────────────
+function drawBars(t) {
+    const n  = Math.min(dataArray.length, 220);
+    const bw = canvas.width / n * 1.15;
+    const mh = canvas.height * 0.9;
+    for (let i = 0; i < n; i++) {
+        const h = dataArray[i] * (8/5) * mh/255 * theme.complexity;
+        const x = (i * canvas.width) / n;
+        ctx.fillStyle = col(i/n, 0.9);
+        ctx.fillRect(x, canvas.height/2 - h/2, bw-1, h/2);
+        ctx.fillStyle = col(i/n, 0.3);
+        ctx.fillRect(x, canvas.height/2, bw-1, h/2);
+    }
+}
+
+function drawKaleidoscope(t, bass) {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    // Use the shorter screen dimension so the pattern fills edge-to-edge
+    const maxR = Math.sqrt(cx*cx + cy*cy) * 1.05;
+    const sides = Math.round(6 + theme.complexity * 4); // 6–10 segments
+    const step  = (Math.PI * 2) / sides;
+
+    // Full-screen radial background wash that pulses with bass
+    const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+    bg.addColorStop(0,   col(0.5, bass * 0.35));
+    bg.addColorStop(0.5, col(0.3, bass * 0.12));
+    bg.addColorStop(1,   col(0.1, 0));
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const binCount = analyser.frequencyBinCount;
+    const stride   = Math.max(1, Math.floor(binCount / 180));
+
+    for (let i = 0; i < sides; i++) {
+        ctx.save();
+        ctx.rotate(step * i);
+
+        // Draw twice per segment (original + mirror) for true kaleidoscope symmetry
+        for (let mirror = 0; mirror < 2; mirror++) {
             ctx.save();
-            ctx.translate(centerX, centerY);
-            for (let i = 0; i < sides; i++) {
-                ctx.rotate(step);
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                for (let j = 0; j < dataArray.length; j += 15) {
-                    const r = (dataArray[j] * sens) / 4;
-                    const x = Math.cos(j) * r;
-                    const y = Math.sin(j) * r;
-                    ctx.lineTo(x, y);
-                }
-                ctx.strokeStyle = `hsl(${(Date.now()/40)%360}, 80%, 60%)`;
-                ctx.lineWidth = 2;
-                ctx.stroke();
+            if (mirror === 1) ctx.scale(1, -1);
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+
+            for (let j = 0; j < binCount; j += stride) {
+                const norm  = dataArray[j] / 255;
+                // Map bin index → radial distance, spread across full maxR
+                const r     = (j / binCount) * maxR * (0.6 + norm * 0.8 * theme.complexity);
+                const angle = norm * (Math.PI / sides) * 1.8 + t * theme.speed * 0.25;
+                ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+
+            const blend = i / sides;
+            ctx.strokeStyle = col(blend + mirror * 0.35, 0.7);
+            ctx.lineWidth   = 1.8 * theme.complexity;
+            ctx.stroke();
+
+            // Filled polygon accent on every other segment
+            if (i % 2 === 0) {
+                ctx.fillStyle = col(blend, 0.06);
+                ctx.fill();
             }
             ctx.restore();
         }
+        ctx.restore();
+    }
 
-        function drawBars() {
-            const barWidth = (canvas.width / dataArray.length) * 2.5;
-            let x = 0;
-            const sens = document.getElementById('sensitivity').value / 5;
+    // Central lens flare that flashes with bass hits
+    const flare = ctx.createRadialGradient(0, 0, 0, 0, 0, maxR * 0.18 * (1 + bass * 1.5));
+    flare.addColorStop(0,   col(0.5, 0.9 * bass));
+    flare.addColorStop(0.4, col(0.4, 0.3 * bass));
+    flare.addColorStop(1,   col(0.3, 0));
+    ctx.beginPath();
+    ctx.arc(0, 0, maxR * 0.18 * (1 + bass * 1.5), 0, Math.PI * 2);
+    ctx.fillStyle = flare;
+    ctx.fill();
 
-            for(let i = 0; i < dataArray.length; i++) {
-                const h = dataArray[i] * sens;
-                ctx.fillStyle = `hsl(${(i + Date.now()/50)%360}, 70%, 50%)`;
-                ctx.fillRect(x, canvas.height - h, barWidth - 1, h);
-                x += barWidth;
-            }
+    ctx.restore();
+}
+
+function drawWave(t) {
+    const sw = canvas.width / dataArray.length;
+    for (let pass = 0; pass < 2; pass++) {
+        ctx.beginPath();
+        ctx.strokeStyle = col(pass*.5, pass===0?1:.3);
+        ctx.lineWidth = pass===0?3:1.5;
+        for (let i = 0; i < dataArray.length; i++) {
+            const y = (dataArray[i]/128)*(canvas.height/2) + pass*6;
+            i===0 ? ctx.moveTo(0,y) : ctx.lineTo(i*sw,y);
+        }
+        ctx.stroke();
+    }
+}
+
+// Persistent particle pool — initialized once, evolved every frame
+const POOL_SIZE = 600;
+const pPool = [];
+(function initPool() {
+    for (let i = 0; i < POOL_SIZE; i++) {
+        pPool.push({
+            x: Math.random() * 2 - 1,   // normalised -1..1
+            y: Math.random() * 2 - 1,
+            vx: (Math.random() - 0.5) * 0.004,
+            vy: (Math.random() - 0.5) * 0.004,
+            life: Math.random(),          // 0..1
+            bin: Math.floor(Math.random() * 200), // which freq bin drives it
+        });
+    }
+})();
+
+function drawParticles(t, bass) {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    // Use full diagonal so particles can reach every corner
+    const maxR = Math.sqrt(cx*cx + cy*cy);
+
+    const activeCount = Math.round(POOL_SIZE * (0.4 + theme.complexity * 0.6));
+
+    for (let i = 0; i < activeCount; i++) {
+        const p   = pPool[i];
+        const val = dataArray[p.bin] / 255;
+
+        // Gravity toward center weakens with bass, creating expansion on hits
+        const gravStrength = 0.00015 * (1 - bass * 0.85);
+        p.vx += -p.x * gravStrength;
+        p.vy += -p.y * gravStrength;
+
+        // Audio-reactive velocity kick proportional to this particle's frequency bin
+        const kick = val * 0.003 * theme.speed;
+        const angle = Math.atan2(p.y, p.x) + (Math.PI / 2);
+        p.vx += Math.cos(angle) * kick;
+        p.vy += Math.sin(angle) * kick;
+
+        // Slight drag
+        p.vx *= 0.992;
+        p.vy *= 0.992;
+
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life += 0.004;
+
+        // Reset if drifted off-screen
+        const dist = Math.sqrt(p.x*p.x + p.y*p.y);
+        if (dist > 1.6 || p.life > 1) {
+            const resetAngle = Math.random() * Math.PI * 2;
+            const resetR     = 0.05 + Math.random() * 0.15;
+            p.x  = Math.cos(resetAngle) * resetR;
+            p.y  = Math.sin(resetAngle) * resetR;
+            p.vx = (Math.random() - 0.5) * 0.003;
+            p.vy = (Math.random() - 0.5) * 0.003;
+            p.life = 0;
+            p.bin = Math.floor(Math.random() * 200);
         }
 
-        function drawWave() {
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = `hsl(${(Date.now()/20)%360}, 100%, 50%)`;
-            ctx.beginPath();
-            
-            const sliceWidth = canvas.width / dataArray.length;
-            let x = 0;
+        const sx     = cx + p.x * maxR;
+        const sy     = cy + p.y * maxR;
+        const radius = (0.5 + val * 5.5 * theme.complexity) * (1 + bass * 1.5);
+        const alpha  = (0.3 + val * 0.7) * (1 - dist / 1.6);
+        const blend  = (p.bin / 200) * 0.8 + (t * 0.04 % 1) * 0.2;
 
-            for (let i = 0; i < dataArray.length; i++) {
-                const v = dataArray[i] / 128.0;
-                const y = v * canvas.height / 2;
+        // Glow: large soft circle behind a crisp bright core
+        const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, radius * 4);
+        glow.addColorStop(0,   col(blend, alpha * 0.5));
+        glow.addColorStop(1,   col(blend, 0));
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius * 4, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
 
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-                x += sliceWidth;
-            }
-            ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.stroke();
+        // Crisp core
+        ctx.beginPath();
+        ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = col(blend, alpha);
+        ctx.fill();
+    }
+
+    // Central nebula bloom pulsing with bass
+    const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR * 0.35 * (1 + bass * 0.8));
+    bloom.addColorStop(0,   col(0.5, bass * 0.25));
+    bloom.addColorStop(0.5, col(0.3, bass * 0.08));
+    bloom.addColorStop(1,   'transparent');
+    ctx.fillStyle = bloom;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawRibbons(t, bass, mid, high) {
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const W  = canvas.width, H = canvas.height;
+
+    // Number of aurora bands scales with complexity
+    const bands     = Math.round(5 + theme.complexity * 4);
+    const binCount  = analyser.frequencyBinCount;
+
+    for (let b = 0; b < bands; b++) {
+        const bandPhase   = (b / bands) * Math.PI * 2;
+        const bandBlend   = b / bands;
+        // Each band samples a different slice of the frequency spectrum
+        const freqStart   = Math.floor((b / bands) * binCount * 0.7);
+        const freqEnd     = Math.floor(((b + 1) / bands) * binCount * 0.7);
+
+        // Compute band's average energy
+        let bandEnergy = 0;
+        for (let fi = freqStart; fi < freqEnd; fi++) bandEnergy += dataArray[fi] / 255;
+        bandEnergy /= (freqEnd - freqStart) || 1;
+
+        // Build ribbon as a thick filled path with top + bottom edges
+        const STEPS = 180;
+        const topPts = [], botPts = [];
+
+        for (let s = 0; s <= STEPS; s++) {
+            const progress = s / STEPS;
+            const screenX  = progress * W;
+
+            // Base vertical position — each band lives at a different y lane
+            const laneY    = H * (0.15 + (b / bands) * 0.7);
+
+            // Undulation: slow sine + audio displacement from its frequency slice
+            const binIdx   = freqStart + Math.floor(progress * (freqEnd - freqStart));
+            const norm     = (dataArray[Math.min(binIdx, binCount-1)] / 255);
+            const undulate = Math.sin(progress * Math.PI * 3 + t * theme.speed * 0.6 + bandPhase)
+                           * H * 0.06
+                           + Math.sin(progress * Math.PI * 7 + t * theme.speed * 1.1 + bandPhase * 1.3)
+                           * H * 0.025;
+            const audioPush = norm * H * 0.22 * theme.complexity * (1 + bass * 0.6);
+
+            const centerY = laneY + undulate;
+            const halfH   = (H * 0.04 + audioPush) * (0.5 + bandEnergy * 0.5);
+
+            topPts.push({ x: screenX, y: centerY - halfH });
+            botPts.push({ x: screenX, y: centerY + halfH });
         }
 
-        function drawParticles() {
-            const sens = document.getElementById('sensitivity').value;
-            for(let i=0; i < 30; i++) {
-                const val = dataArray[i * 4];
-                const x = (Math.sin(i + Date.now()/1000) * canvas.width/4) + canvas.width/2;
-                const y = (Math.cos(i + Date.now()/1000) * canvas.height/4) + canvas.height/2;
-                
-                ctx.beginPath();
-                ctx.arc(x + (Math.random()-0.5)*val, y + (Math.random()-0.5)*val, (val/10) * (sens/5), 0, Math.PI*2);
-                ctx.fillStyle = `hsla(${(val + Date.now()/50)%360}, 80%, 60%, 0.8)`;
-                ctx.fill();
-            }
+        // Draw filled ribbon
+        ctx.beginPath();
+        ctx.moveTo(topPts[0].x, topPts[0].y);
+        for (let s = 1; s <= STEPS; s++) ctx.lineTo(topPts[s].x, topPts[s].y);
+        for (let s = STEPS; s >= 0; s--) ctx.lineTo(botPts[s].x, botPts[s].y);
+        ctx.closePath();
+
+        // Horizontal gradient — aurora shimmer
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        for (let stop = 0; stop <= 6; stop++) {
+            const sp = stop / 6;
+            const h  = hue(bandBlend + sp * 0.25 + t * 0.015 % 1);
+            grad.addColorStop(sp, `hsla(${h},${theme.sat}%,${theme.lit}%,${0.12 + bandEnergy * 0.45})`);
         }
-    </script>
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Bright glowing top edge
+        ctx.beginPath();
+        ctx.moveTo(topPts[0].x, topPts[0].y);
+        for (let s = 1; s <= STEPS; s++) ctx.lineTo(topPts[s].x, topPts[s].y);
+        ctx.strokeStyle = col(bandBlend + t * 0.02 % 1, 0.55 + bandEnergy * 0.4);
+        ctx.lineWidth   = 1.5 + bandEnergy * 3;
+        ctx.stroke();
+
+        // Bright glowing bottom edge
+        ctx.beginPath();
+        ctx.moveTo(botPts[0].x, botPts[0].y);
+        for (let s = 1; s <= STEPS; s++) ctx.lineTo(botPts[s].x, botPts[s].y);
+        ctx.strokeStyle = col(bandBlend + 0.15 + t * 0.02 % 1, 0.3 + bandEnergy * 0.3);
+        ctx.lineWidth   = 1;
+        ctx.stroke();
+    }
+
+    // Overall screen-wide vertical glow that pulses with bass
+    const screenGlow = ctx.createLinearGradient(0, 0, 0, H);
+    screenGlow.addColorStop(0,   col(0, 0));
+    screenGlow.addColorStop(0.4, col(0.4, bass * 0.1));
+    screenGlow.addColorStop(0.6, col(0.6, bass * 0.1));
+    screenGlow.addColorStop(1,   col(1, 0));
+    ctx.fillStyle = screenGlow;
+    ctx.fillRect(0, 0, W, H);
+}
+</script>
 </body>
 </html>

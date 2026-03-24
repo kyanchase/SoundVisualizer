@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Synesthesia Ultra</title>
+    <title>Synesthesia</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #00f2fe; --panel: rgba(5, 5, 5, 0.95); }
+        :root { --accent: #00f2fe; --panel: rgba(10, 10, 10, 0.9); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { 
             width: 100%; height: 100%; 
@@ -14,77 +14,94 @@
             color: white;
         }
         
-        canvas { 
-            position: absolute; 
-            top: 0; left: 0; 
-            width: 100vw; height: 100vh; 
-            z-index: 1; 
-            display: block;
-        }
+        canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; display: block; }
 
-        #ui-layer { position: relative; z-index: 10; height: 100vh; pointer-events: none; width: 100%; }
-        
-        /* Restored Landing Page Style */
+        /* Subtle Fading Multicolor Background */
         #landing {
             position: fixed; inset: 0; 
             display: flex; flex-direction: column;
             align-items: center; justify-content: center; 
-            background: black;
+            background: linear-gradient(-45deg, #050505, #1a0a1a, #0a1a1a, #050505);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
             z-index: 100;
-            transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); 
+            transition: opacity 1.5s ease; 
             pointer-events: all;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         .title {
             font-family: 'Space Mono';
-            font-size: 5vw;
-            letter-spacing: .25em;
-            margin-bottom: 30px;
+            font-size: 4.5vw;
+            letter-spacing: .3em;
+            margin-bottom: 50px;
             text-transform: uppercase;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 0 20px rgba(255,255,255,0.2);
         }
 
-        .cards { display: flex; gap: 25px; }
+        .cards { display: flex; gap: 40px; }
 
+        /* Marble Button Styling */
         .card {
-            width: 180px; height: 180px;
-            border: 1px solid rgba(255,255,255,.15);
-            border-radius: 20px;
+            width: 220px; height: 140px;
+            border-radius: 12px;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            cursor: pointer; transition: .25s;
-            background: rgba(255,255,255,.04);
-            font-size: 1.1rem;
-            text-align: center;
-            line-height: 1.6;
+            cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            /* Marble Background Simulation */
+            background: linear-gradient(135deg, #e0e0e0 0%, #ffffff 50%, #d1d1d1 100%);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,255,255,0.5);
+            color: #333;
+            font-family: 'Space Mono';
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border: none;
         }
+
+        .card span { font-size: 2.5rem; margin-bottom: 10px; }
 
         .card:hover {
-            transform: translateY(-6px);
-            background: rgba(255,255,255,.08);
-            border-color: white;
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 40px rgba(0,242,254,0.3);
+            filter: brightness(1.1);
         }
 
-        /* Controller Styles */
+        /* Controller - Starts Minimized */
         #controller {
             position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
             background: var(--panel); border: 1px solid #333; border-radius: 50px;
-            display: flex; align-items: center; padding: 12px 30px; gap: 25px;
+            display: flex; align-items: center; padding: 0; gap: 0;
             transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
             pointer-events: all; backdrop-filter: blur(20px);
+            width: 60px; height: 60px; overflow: hidden; justify-content: center;
         }
 
-        #controller.minimized { width: 60px; height: 60px; padding: 0; gap: 0; border-radius: 50%; justify-content: center; }
-        #controller.minimized .hide-on-min { display: none; }
+        #controller.expanded { width: 280px; padding: 12px 30px; gap: 25px; border-radius: 50px; }
 
         .status-dot {
-            width: 18px; height: 18px; background: var(--accent); border-radius: 50%;
-            cursor: pointer; box-shadow: 0 0 20px var(--accent);
+            width: 20px; height: 20px; background: var(--accent); border-radius: 50%;
+            cursor: pointer; box-shadow: 0 0 20px var(--accent); flex-shrink: 0;
         }
 
-        .info-text { font-family: 'Space Mono'; font-size: 10px; color: #aaa; white-space: nowrap; font-weight: 700; }
-        #fileInput { display: none; }
-        .hidden { opacity: 0; pointer-events: none !important; }
+        .hide-on-min { opacity: 0; display: none; transition: opacity 0.3s; }
+        #controller.expanded .hide-on-min { opacity: 1; display: block; }
 
+        #pause-btn {
+            background: white; border: none; color: black; cursor: pointer;
+            padding: 8px 18px; border-radius: 20px; font-family: 'Space Mono';
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+        }
+
+        .info-text { font-family: 'Space Mono'; font-size: 10px; color: #888; white-space: nowrap; }
+        #fileInput { display: none; }
     </style>
 </head>
 <body>
@@ -96,19 +113,18 @@
         <div class="title">Synesthesia</div>
         <div class="cards">
             <div class="card" onclick="app.initAudio('mic')">
-                🎙️<br>Microphone
+                <span>🎙️</span>Microphone
             </div>
             <div class="card" onclick="document.getElementById('fileInput').click()">
-                🎵<br>Upload Track
+                <span>🎵</span>Upload Track
             </div>
         </div>
     </div>
 
     <div id="controller">
         <div class="status-dot" onclick="app.toggleUI()"></div>
-        <div class="hide-on-min info-text" id="track-display">ANALYZER_OFFLINE</div>
-        <button class="hide-on-min" style="padding: 8px 20px; background: transparent; border: 1px solid #444; color: white; cursor: pointer; border-radius: 20px; font-family: 'Space Mono'; font-size: 10px;" id="pause-btn" onclick="app.togglePlayback()">PAUSE</button>
-        <div class="hide-on-min info-text" id="mode-display" style="color: var(--accent);">SCENE: INITIALIZING</div>
+        <div class="hide-on-min info-text" id="track-display">OFFLINE</div>
+        <button class="hide-on-min" id="pause-btn" onclick="app.togglePlayback()">Pause</button>
     </div>
 </div>
 
@@ -127,78 +143,78 @@
     mat2 rot(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
 
     vec3 spectral(float t) {
-        vec3 a = vec3(0.5);
-        vec3 b = vec3(0.5);
-        vec3 c = vec3(1.0);
+        vec3 a = vec3(0.5); vec3 b = vec3(0.5); vec3 c = vec3(1.0);
         vec3 d = vec3(0.0, 0.33, 0.67);
         return a + b * cos(6.28318 * (c * t + d));
     }
 
     float sdOctahedron(vec3 p, float s) {
-        p = abs(p);
-        return (p.x + p.y + p.z - s) * 0.57735027;
+        p = abs(p); return (p.x + p.y + p.z - s) * 0.57735027;
     }
 
     float map(vec3 p, int mode) {
         float d = 1000.0;
         if (mode == 0) { // PRISM VOID
-            p.z += u_time * 1.5;
-            p.xy *= rot(p.z * 0.2 + u_time * 0.1);
-            vec3 q = mod(p, 8.0) - 4.0;
-            for(int i=0; i<5; i++) {
-                q = abs(q) - 1.2;
-                q.xz *= rot(u_time * 0.3 + u_bass);
-                q.xy *= rot(u_mid * 0.5);
-                q *= 1.3;
+            p.z += u_time * 0.8;
+            p.xy *= rot(p.z * 0.1 + u_time * 0.05);
+            vec3 q = mod(p, 10.0) - 5.0; // Increased spacing to reduce wash
+            for(int i=0; i<4; i++) {
+                q = abs(q) - 1.5;
+                q.xz *= rot(u_time * 0.2 + u_bass * 0.1);
+                q *= 1.25;
             }
-            d = sdOctahedron(q, 1.0 + u_bass * 2.0) * 0.05;
+            d = sdOctahedron(q, 1.2 + u_bass) * 0.1;
         } 
         else if (mode == 1) { // KINETIC CUBES
-            p.xz *= rot(u_time * 0.4);
-            p.yz *= rot(u_time * 0.25);
-            vec3 q = mod(p, 7.0) - 3.5; 
-            vec3 id = floor(p/7.0);
-            q.xy *= rot(u_time + length(id));
-            q.zy *= rot(u_time * 0.8 + u_beat);
-            d = (length(max(abs(q)-vec3(0.8 + u_bass), 0.0)));
+            p.xz *= rot(u_time * 0.3);
+            p.yz *= rot(u_time * 0.2);
+            vec3 q = mod(p, 8.0) - 4.0; 
+            vec3 id = floor(p/8.0);
+            q.xy *= rot(u_time * 0.5 + length(id) * 0.1);
+            d = (length(max(abs(q)-vec3(0.7 + u_bass * 0.5), 0.0)));
         }
-        else { // SPECTRAL PLASMA LATTICE
-            p.z += u_time * 1.0;
-            p.xy *= rot(sin(u_time * 0.2));
+        else { // SPECTRAL LATTICE
+            p.z += u_time * 0.6;
+            p.xy *= rot(sin(u_time * 0.1));
             vec3 q = abs(mod(p, 4.0) - 2.0);
             for(int i=0; i<3; i++) {
                 q = abs(q) - 0.5;
-                q.xy *= rot(u_time * 0.4);
-                q *= 1.6 + u_bass * 0.2;
+                q.xy *= rot(u_time * 0.3);
+                q *= 1.5 + u_bass * 0.1;
             }
-            d = length(q.xz) - (0.1 + u_mid * 0.8);
+            d = length(q.xz) - (0.15 + u_mid * 0.5);
         }
         return d;
     }
 
     void main() {
         vec2 uv = (gl_FragCoord.xy * 2.0 - u_res.xy) / min(u_res.x, u_res.y);
-        vec3 ro = vec3(0, 0, -6);
-        vec3 rd = normalize(vec3(uv, 1.0 + u_bass * 0.5));
-        float t = 0.0, d = 0.0;
-        for(int i=0; i<120; i++) {
+        vec3 ro = vec3(0, 0, -7);
+        vec3 rd = normalize(vec3(uv, 1.2));
+        
+        float t = 0.0;
+        for(int i=0; i<100; i++) {
             vec3 p = ro + rd * t;
-            float d1 = map(p, u_currMode);
-            float d2 = map(p, u_nextMode);
-            d = mix(d1, d2, u_transition);
-            if(abs(d) < 0.001 || t > 60.0) break;
-            t += d;
+            float dist = mix(map(p, u_currMode), map(p, u_nextMode), u_transition);
+            if(abs(dist) < 0.002 || t > 50.0) break;
+            t += dist;
         }
+
         vec3 col = vec3(0);
-        if(t < 60.0) {
-            float grad = t * 0.05 + u_time * 0.1;
-            col = mix(spectral(grad), spectral(grad + 0.5), u_transition);
-            col *= exp(-t * 0.08); 
-            col += (u_high * 0.4) / (t * 0.5); 
-            col += spectral(u_time * 0.5) * (0.02 / d);
+        if(t < 50.0) {
+            float grad = t * 0.04 + u_time * 0.05;
+            col = spectral(grad);
+            
+            // Reduced washed out intensity
+            col *= exp(-t * 0.12); 
+            col += (u_high * 0.15) / (t * 0.5); // Softer glimmer
         }
-        col.r = mix(col.r, spectral(u_time).r, u_beat * 0.2);
-        gl_FragColor = vec4(smoothstep(-0.1, 1.1, col), 1.0);
+        
+        // Final Contrast adjustment to prevent "washed out" look
+        col = pow(col, vec3(1.2)); 
+        col *= 1.2;
+        
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
     }
 </script>
 
@@ -210,14 +226,15 @@ class VJSystem {
         this.state = { 
             bass:0, mid:0, high:0, beat:0, 
             currMode: 0, nextMode: 0, transition: 1.0,
-            startTime: Date.now() 
+            elapsedTime: 0, lastFrameTime: Date.now(),
+            isPaused: false
         };
         this.initGL();
         this.bindEvents();
         this.resize();
         this.render = this.render.bind(this);
         requestAnimationFrame(this.render);
-        setInterval(() => this.triggerTransition(), 10000);
+        setInterval(() => this.triggerTransition(), 12000);
     }
 
     initGL() {
@@ -254,11 +271,10 @@ class VJSystem {
     }
 
     triggerTransition() {
+        if (this.state.isPaused) return;
         this.state.currMode = this.state.nextMode;
         this.state.nextMode = (this.state.currMode + 1) % 3;
         this.state.transition = 0.0;
-        const names = ["PRISM_VOID", "KINETIC_CUBES", "SPECTRAL_LATTICE"];
-        document.getElementById('mode-display').innerText = "SCENE: " + names[this.state.nextMode];
     }
 
     async initAudio(type) {
@@ -274,17 +290,20 @@ class VJSystem {
             this.ctx.createMediaElementSource(this.audio).connect(this.analyser);
             this.analyser.connect(this.ctx.destination);
             this.audio.play();
-            document.getElementById('track-display').innerText = file.name.slice(0,12).toUpperCase();
+            document.getElementById('track-display').innerText = file.name.slice(0,10).toUpperCase();
         }
         document.getElementById('landing').style.opacity = "0";
-        setTimeout(() => document.getElementById('landing').style.display = "none", 1000);
+        setTimeout(() => document.getElementById('landing').style.display = "none", 1500);
     }
 
-    toggleUI() { document.getElementById('controller').classList.toggle('minimized'); }
+    toggleUI() { document.getElementById('controller').classList.toggle('expanded'); }
+    
     togglePlayback() {
-        if(!this.audio) return;
-        if(this.audio.paused) { this.audio.play(); document.getElementById('pause-btn').innerText="PAUSE"; }
-        else { this.audio.pause(); document.getElementById('pause-btn').innerText="PLAY"; }
+        this.state.isPaused = !this.state.isPaused;
+        document.getElementById('pause-btn').innerText = this.state.isPaused ? "Play" : "Pause";
+        if (this.audio) {
+            this.state.isPaused ? this.audio.pause() : this.audio.play();
+        }
     }
 
     resize() {
@@ -299,21 +318,29 @@ class VJSystem {
     }
 
     render() {
-        if(this.analyser) {
-            const d = new Uint8Array(this.analyser.frequencyBinCount);
-            this.analyser.getByteFrequencyData(d);
-            let b=0, m=0, h=0;
-            for(let i=0; i<12; i++) b += d[i];
-            for(let i=12; i<100; i++) m += d[i];
-            for(let i=100; i<250; i++) h += d[i];
-            const prevB = this.state.bass;
-            this.state.bass = b/3060; this.state.mid = m/22440; this.state.high = h/38250;
-            if(this.state.bass > prevB * 1.15) this.state.beat = 1.0;
-            this.state.beat *= 0.94;
+        const now = Date.now();
+        const delta = (now - this.state.lastFrameTime) * 0.001;
+        this.state.lastFrameTime = now;
+
+        if (!this.state.isPaused) {
+            this.state.elapsedTime += delta;
+            
+            if(this.analyser) {
+                const d = new Uint8Array(this.analyser.frequencyBinCount);
+                this.analyser.getByteFrequencyData(d);
+                let b=0, m=0, h=0;
+                for(let i=0; i<12; i++) b += d[i];
+                for(let i=12; i<100; i++) m += d[i];
+                for(let i=100; i<250; i++) h += d[i];
+                const prevB = this.state.bass;
+                this.state.bass = b/3060; this.state.mid = m/22440; this.state.high = h/38250;
+                if(this.state.bass > prevB * 1.15) this.state.beat = 1.0;
+                this.state.beat *= 0.94;
+            }
+            if(this.state.transition < 1.0) this.state.transition += 0.006;
         }
-        if(this.state.transition < 1.0) this.state.transition += 0.008;
-        const time = (Date.now() - this.state.startTime) * 0.001;
-        this.gl.uniform1f(this.uni.t, time);
+
+        this.gl.uniform1f(this.uni.t, this.state.elapsedTime);
         this.gl.uniform2f(this.uni.r, this.canvas.width, this.canvas.height);
         this.gl.uniform1f(this.uni.b, this.state.bass);
         this.gl.uniform1f(this.uni.m, this.state.mid);

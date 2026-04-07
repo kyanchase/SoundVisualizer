@@ -2,331 +2,887 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Synesthesia Ultra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synesthesia</title>
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
     <style>
-        :root { --accent: #00f2fe; --panel: rgba(5, 5, 5, 0.95); }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { 
-            width: 100%; height: 100%; 
-            background: #000; overflow: hidden; 
+        :root {
+            --accent: #00f2fe;
+            --accent2: #ff3cac;
+            --panel: rgba(8, 8, 8, 0.92);
+            --glass-border: rgba(255,255,255,0.12);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            width: 100%; height: 100%;
+            background: #000; overflow: hidden;
             font-family: 'DM Sans', sans-serif;
             color: white;
         }
-        
-        canvas { 
-            position: absolute; 
-            top: 0; left: 0; 
-            width: 100vw; height: 100vh; 
-            z-index: 1; 
-            display: block;
-        }
 
-        #ui-layer { position: relative; z-index: 10; height: 100vh; pointer-events: none; width: 100%; }
-        
-        /* Restored Landing Page Style */
+        /* ── Canvases ── */
+        #gl, #c2d {
+            position: fixed; inset: 0;
+            width: 100vw; height: 100vh;
+            z-index: 1; display: block;
+        }
+        #c2d { display: none; }
+
+        /* ── Landing ── */
         #landing {
-            position: fixed; inset: 0; 
+            position: fixed; inset: 0; z-index: 100;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center; 
-            background: black;
-            z-index: 100;
-            transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1); 
+            align-items: center; justify-content: center; gap: 44px;
+            background: linear-gradient(-45deg, #050505, #0d0520, #050d18, #050505);
+            background-size: 400% 400%;
+            animation: gradBG 18s ease infinite;
+            transition: opacity 1.2s ease;
             pointer-events: all;
         }
+        #landing.fade { opacity: 0; pointer-events: none; }
 
-        .title {
-            font-family: 'Space Mono';
-            font-size: 5vw;
-            letter-spacing: .25em;
-            margin-bottom: 30px;
+        @keyframes gradBG {
+            0%   { background-position: 0% 50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .landing-title {
+            font-family: 'Space Mono', monospace;
+            font-size: clamp(2.2rem, 5.5vw, 5rem);
+            letter-spacing: 0.35em;
             text-transform: uppercase;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 55%, var(--accent2) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .landing-sub {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.7rem; letter-spacing: 0.2em;
+            opacity: 0.3; text-transform: uppercase;
+            margin-top: -36px;
         }
 
-        .cards { display: flex; gap: 25px; }
+        /* Mode toggle */
+        .mode-toggle {
+            display: flex; gap: 0;
+            border: 1px solid var(--glass-border);
+            border-radius: 40px; overflow: hidden;
+        }
+        .mode-toggle-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 11px; letter-spacing: 0.1em;
+            padding: 10px 28px; cursor: pointer;
+            background: transparent; border: none; color: rgba(255,255,255,0.4);
+            text-transform: uppercase; transition: all 0.25s;
+        }
+        .mode-toggle-btn.active {
+            background: rgba(0,242,254,0.12);
+            color: var(--accent);
+        }
 
+        /* Source cards */
+        .cards { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
         .card {
-            width: 180px; height: 180px;
-            border: 1px solid rgba(255,255,255,.15);
-            border-radius: 20px;
+            width: 180px; height: 150px;
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            cursor: pointer; transition: .25s;
-            background: rgba(255,255,255,.04);
-            font-size: 1.1rem;
-            text-align: center;
-            line-height: 1.6;
+            align-items: center; justify-content: center; gap: 14px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(10px);
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem; letter-spacing: 0.08em;
+            text-transform: uppercase;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
         .card:hover {
-            transform: translateY(-6px);
-            background: rgba(255,255,255,.08);
-            border-color: white;
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            background: rgba(0,242,254,0.07);
+            box-shadow: 0 16px 40px rgba(0,242,254,0.15);
+        }
+        .card-icon { font-size: 2.2rem; }
+
+        /* ── HUD ── */
+        #hud {
+            position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+            z-index: 20; background: var(--panel);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 60px;
+            padding: 11px 26px;
+            display: flex; align-items: center; gap: 16px;
+            transition: all 0.5s cubic-bezier(0.19,1,0.22,1);
+            pointer-events: all; opacity: 0; pointer-events: none;
+        }
+        #hud.visible { opacity: 1; pointer-events: all; }
+
+        .dot {
+            width: 9px; height: 9px; border-radius: 50%;
+            background: var(--accent); box-shadow: 0 0 10px var(--accent);
+            flex-shrink: 0; animation: pulse 2s ease infinite;
+        }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+        .sep { width: 1px; height: 18px; background: #2a2a2a; flex-shrink: 0; }
+
+        .hud-label {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px; letter-spacing: 0.12em;
+            color: rgba(255,255,255,0.4); text-transform: uppercase; white-space: nowrap;
         }
 
-        /* Controller Styles */
-        #controller {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: var(--panel); border: 1px solid #333; border-radius: 50px;
-            display: flex; align-items: center; padding: 12px 30px; gap: 25px;
-            transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-            pointer-events: all; backdrop-filter: blur(20px);
+        .scene-btns, .mode-btns { display: flex; gap: 5px; }
+        .hud-btn {
+            font-family: 'Space Mono', monospace;
+            font-size: 9px; letter-spacing: 0.08em;
+            padding: 5px 11px; border-radius: 30px;
+            border: 1px solid #333; background: transparent;
+            color: rgba(255,255,255,0.4); cursor: pointer;
+            transition: all 0.18s; text-transform: uppercase; white-space: nowrap;
+        }
+        .hud-btn:hover, .hud-btn.active {
+            border-color: var(--accent); color: var(--accent);
+            background: rgba(0,242,254,0.08);
+        }
+        .hud-btn.accent2:hover, .hud-btn.accent2.active {
+            border-color: var(--accent2); color: var(--accent2);
+            background: rgba(255,60,172,0.08);
         }
 
-        #controller.minimized { width: 60px; height: 60px; padding: 0; gap: 0; border-radius: 50%; justify-content: center; }
-        #controller.minimized .hide-on-min { display: none; }
-
-        .status-dot {
-            width: 18px; height: 18px; background: var(--accent); border-radius: 50%;
-            cursor: pointer; box-shadow: 0 0 20px var(--accent);
+        /* Sliders */
+        .slider-group { display: flex; align-items: center; gap: 7px; }
+        input[type=range] {
+            -webkit-appearance: none;
+            height: 3px; background: #2a2a2a;
+            border-radius: 2px; outline: none; cursor: pointer;
+        }
+        input[type=range].w60 { width: 60px; }
+        input[type=range].w50 { width: 50px; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 11px; height: 11px;
+            border-radius: 50%; background: var(--accent);
+            box-shadow: 0 0 6px var(--accent);
         }
 
-        .info-text { font-family: 'Space Mono'; font-size: 10px; color: #aaa; white-space: nowrap; font-weight: 700; }
+        /* Energy meter */
+        .energy-bar {
+            width: 50px; height: 3px;
+            background: #2a2a2a; border-radius: 2px; overflow: hidden;
+        }
+        .energy-fill {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            border-radius: 2px;
+        }
+
+        /* EQ Panel */
+        #eq-panel {
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            z-index: 20; background: var(--panel);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 16px 24px;
+            display: flex; align-items: center; gap: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+            transform: translateX(-50%) translateY(8px);
+        }
+        #eq-panel.visible {
+            opacity: 1; pointer-events: all;
+            transform: translateX(-50%) translateY(0);
+        }
+        .eq-band { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .eq-label { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+        .eq-value { font-family: 'Space Mono', monospace; font-size: 9px; color: var(--accent); }
+        input[type=range].eq-slider {
+            width: 80px; background: #2a2a2a;
+        }
+
         #fileInput { display: none; }
-        .hidden { opacity: 0; pointer-events: none !important; }
-
     </style>
 </head>
 <body>
 
 <canvas id="gl"></canvas>
+<canvas id="c2d"></canvas>
+<input type="file" id="fileInput" accept="audio/*">
 
-<div id="ui-layer">
-    <div id="landing">
-        <div class="title">Synesthesia</div>
-        <div class="cards">
-            <div class="card" onclick="app.initAudio('mic')">
-                🎙️<br>Microphone
-            </div>
-            <div class="card" onclick="document.getElementById('fileInput').click()">
-                🎵<br>Upload Track
-            </div>
-        </div>
+<!-- ── Landing ── -->
+<div id="landing">
+    <div class="landing-title">Synesthesia</div>
+    <div class="landing-sub">audio visualizer</div>
+
+    <div class="mode-toggle">
+        <button class="mode-toggle-btn active" id="btn3d" onclick="selectVisMode('3d')">3D Scenes</button>
+        <button class="mode-toggle-btn" id="btn2d" onclick="selectVisMode('2d')">2D Visuals</button>
     </div>
 
-    <div id="controller">
-        <div class="status-dot" onclick="app.toggleUI()"></div>
-        <div class="hide-on-min info-text" id="track-display">ANALYZER_OFFLINE</div>
-        <button class="hide-on-min" style="padding: 8px 20px; background: transparent; border: 1px solid #444; color: white; cursor: pointer; border-radius: 20px; font-family: 'Space Mono'; font-size: 10px;" id="pause-btn" onclick="app.togglePlayback()">PAUSE</button>
-        <div class="hide-on-min info-text" id="mode-display" style="color: var(--accent);">SCENE: INITIALIZING</div>
+    <div class="cards">
+        <div class="card" onclick="launch('mic')">
+            <div class="card-icon">🎙️</div>
+            Microphone
+        </div>
+        <div class="card" onclick="document.getElementById('fileInput').click()">
+            <div class="card-icon">🎵</div>
+            Upload Track
+        </div>
     </div>
 </div>
 
-<input type="file" id="fileInput" accept="audio/*">
+<!-- ── HUD ── -->
+<div id="hud">
+    <div class="dot"></div>
+    <div class="hud-label" id="track-label">OFFLINE</div>
+    <div class="sep"></div>
 
+    <!-- 3D scene buttons -->
+    <div class="scene-btns" id="btns-3d">
+        <button class="hud-btn active" onclick="set3DScene(0)">Prism</button>
+        <button class="hud-btn" onclick="set3DScene(1)">Cubes</button>
+        <button class="hud-btn" onclick="set3DScene(2)">Lattice</button>
+    </div>
+
+    <!-- 2D mode buttons -->
+    <div class="mode-btns" id="btns-2d" style="display:none">
+        <button class="hud-btn active" onclick="set2DMode('bars')">Bars</button>
+        <button class="hud-btn" onclick="set2DMode('wave')">Wave</button>
+        <button class="hud-btn" onclick="set2DMode('prism')">Prism</button>
+        <button class="hud-btn" onclick="set2DMode('orbs')">Orbs</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Gain -->
+    <div class="slider-group">
+        <div class="hud-label">Gain</div>
+        <input type="range" class="w60" id="gain" min="0.4" max="2.5" step="0.05" value="1.0">
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- EQ toggle -->
+    <button class="hud-btn" id="eq-toggle-btn" onclick="toggleEQ()">EQ</button>
+
+    <div class="sep"></div>
+
+    <!-- Energy -->
+    <div class="slider-group">
+        <div class="hud-label">LVL</div>
+        <div class="energy-bar"><div class="energy-fill" id="energy-fill"></div></div>
+    </div>
+
+    <div class="sep"></div>
+
+    <button class="hud-btn" id="pause-btn" onclick="togglePlay()">Pause</button>
+    <button class="hud-btn accent2" onclick="goHome()">↩</button>
+</div>
+
+<!-- ── EQ Panel ── -->
+<div id="eq-panel">
+    <div class="eq-band">
+        <div class="eq-label">Bass</div>
+        <input type="range" class="eq-slider" id="eq-bass" min="-14" max="14" step="1" value="0" oninput="updateEQ()">
+        <div class="eq-value" id="eq-bass-val">0 dB</div>
+    </div>
+    <div class="sep" style="height:50px"></div>
+    <div class="eq-band">
+        <div class="eq-label">Mid</div>
+        <input type="range" class="eq-slider" id="eq-mid" min="-14" max="14" step="1" value="0" oninput="updateEQ()">
+        <div class="eq-value" id="eq-mid-val">0 dB</div>
+    </div>
+    <div class="sep" style="height:50px"></div>
+    <div class="eq-band">
+        <div class="eq-label">Treble</div>
+        <input type="range" class="eq-slider" id="eq-treble" min="-14" max="14" step="1" value="0" oninput="updateEQ()">
+        <div class="eq-value" id="eq-treble-val">0 dB</div>
+    </div>
+    <div class="sep" style="height:50px"></div>
+    <button class="hud-btn" onclick="resetEQ()">Reset</button>
+</div>
+
+<!-- ── WebGL Shaders ── -->
 <script id="vs" type="x-shader/x-vertex">
     attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }
 </script>
 
 <script id="fs" type="x-shader/x-fragment">
     precision highp float;
-    uniform float u_time, u_bass, u_mid, u_high, u_beat, u_transition;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat, u_transition, u_energy;
     uniform int u_currMode, u_nextMode;
     uniform vec2 u_res;
 
-    mat2 rot(float a) { return mat2(cos(a), -sin(a), sin(a), cos(a)); }
+    mat2 rot(float a) { return mat2(cos(a),-sin(a),sin(a),cos(a)); }
 
     vec3 spectral(float t) {
-        vec3 a = vec3(0.5);
-        vec3 b = vec3(0.5);
-        vec3 c = vec3(1.0);
-        vec3 d = vec3(0.0, 0.33, 0.67);
-        return a + b * cos(6.28318 * (c * t + d));
+        return vec3(0.5) + vec3(0.5)*cos(6.28318*(vec3(1.0)*t + vec3(0.0,0.33,0.67)));
     }
 
     float sdOctahedron(vec3 p, float s) {
-        p = abs(p);
-        return (p.x + p.y + p.z - s) * 0.57735027;
+        p = abs(p); return (p.x+p.y+p.z-s)*0.57735027;
     }
 
     float map(vec3 p, int mode) {
-        float d = 1000.0;
-        if (mode == 0) { // PRISM VOID
-            p.z += u_time * 1.5;
-            p.xy *= rot(p.z * 0.2 + u_time * 0.1);
-            vec3 q = mod(p, 8.0) - 4.0;
-            for(int i=0; i<5; i++) {
-                q = abs(q) - 1.2;
-                q.xz *= rot(u_time * 0.3 + u_bass);
-                q.xy *= rot(u_mid * 0.5);
-                q *= 1.3;
+        float e = u_energy;
+        if (mode == 0) {
+            p.z += u_time * 1.2;
+            p.xy *= rot(p.z * 0.15 + u_time * 0.08);
+            vec3 q = mod(p, 9.0) - 4.5;
+            for(int i=0; i<4; i++) {
+                q = abs(q) - 1.3;
+                q.xz *= rot(u_time*0.25 + u_bass*e*0.8);
+                q.xy *= rot(u_mid*0.4*e);
+                q *= 1.28;
             }
-            d = sdOctahedron(q, 1.0 + u_bass * 2.0) * 0.05;
-        } 
-        else if (mode == 1) { // KINETIC CUBES
-            p.xz *= rot(u_time * 0.4);
-            p.yz *= rot(u_time * 0.25);
-            vec3 q = mod(p, 7.0) - 3.5; 
-            vec3 id = floor(p/7.0);
-            q.xy *= rot(u_time + length(id));
-            q.zy *= rot(u_time * 0.8 + u_beat);
-            d = (length(max(abs(q)-vec3(0.8 + u_bass), 0.0)));
+            return sdOctahedron(q, 1.1 + u_bass*1.5*e) * 0.07;
         }
-        else { // SPECTRAL PLASMA LATTICE
-            p.z += u_time * 1.0;
-            p.xy *= rot(sin(u_time * 0.2));
-            vec3 q = abs(mod(p, 4.0) - 2.0);
+        else if (mode == 1) {
+            p.xz *= rot(u_time*0.35);
+            p.yz *= rot(u_time*0.22);
+            vec3 q = mod(p, 7.5) - 3.75;
+            vec3 id = floor(p/7.5);
+            q.xy *= rot(u_time*0.6 + length(id)*0.1);
+            q.zy *= rot(u_time*0.7 + u_beat*e*0.6);
+            return length(max(abs(q)-vec3(0.75 + u_bass*e*0.8), 0.0));
+        }
+        else {
+            p.z += u_time * 0.9;
+            p.xy *= rot(sin(u_time*0.15));
+            vec3 q = abs(mod(p, 4.2) - 2.1);
             for(int i=0; i<3; i++) {
                 q = abs(q) - 0.5;
-                q.xy *= rot(u_time * 0.4);
-                q *= 1.6 + u_bass * 0.2;
+                q.xy *= rot(u_time*0.35);
+                q *= 1.55 + u_bass*0.15*e;
             }
-            d = length(q.xz) - (0.1 + u_mid * 0.8);
+            return length(q.xz) - (0.12 + u_mid*0.7*e);
         }
-        return d;
     }
 
     void main() {
-        vec2 uv = (gl_FragCoord.xy * 2.0 - u_res.xy) / min(u_res.x, u_res.y);
-        vec3 ro = vec3(0, 0, -6);
-        vec3 rd = normalize(vec3(uv, 1.0 + u_bass * 0.5));
-        float t = 0.0, d = 0.0;
-        for(int i=0; i<120; i++) {
-            vec3 p = ro + rd * t;
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy) / min(u_res.x, u_res.y);
+        vec3 ro = vec3(0,0,-6.5);
+        vec3 rd = normalize(vec3(uv, 1.15 + u_bass*0.3*u_energy));
+        float t = 0.0;
+        float dc = 1000.0;
+        for(int i=0; i<110; i++) {
+            vec3 p = ro + rd*t;
             float d1 = map(p, u_currMode);
             float d2 = map(p, u_nextMode);
-            d = mix(d1, d2, u_transition);
-            if(abs(d) < 0.001 || t > 60.0) break;
-            t += d;
+            dc = mix(d1, d2, u_transition);
+            if(abs(dc) < 0.002 || t > 55.0) break;
+            t += dc;
         }
-        vec3 col = vec3(0);
-        if(t < 60.0) {
-            float grad = t * 0.05 + u_time * 0.1;
-            col = mix(spectral(grad), spectral(grad + 0.5), u_transition);
-            col *= exp(-t * 0.08); 
-            col += (u_high * 0.4) / (t * 0.5); 
-            col += spectral(u_time * 0.5) * (0.02 / d);
+
+        vec3 col = vec3(0.0);
+        if(t < 55.0) {
+            float grad = t*0.045 + u_time*0.08;
+            vec3 base = mix(spectral(grad), spectral(grad+0.5), u_transition);
+
+            // Surface normal
+            float eps = 0.012;
+            vec3 pp = ro + rd*t;
+            vec3 nor = normalize(vec3(
+                mix(map(pp+vec3(eps,0,0),u_currMode),map(pp+vec3(eps,0,0),u_nextMode),u_transition)-dc,
+                mix(map(pp+vec3(0,eps,0),u_currMode),map(pp+vec3(0,eps,0),u_nextMode),u_transition)-dc,
+                mix(map(pp+vec3(0,0,eps),u_currMode),map(pp+vec3(0,0,eps),u_nextMode),u_transition)-dc
+            ));
+
+            float diff = max(dot(nor, normalize(vec3(1.0,1.2,-0.8))), 0.0)*0.65 + 0.35;
+            float rim  = pow(1.0 - max(dot(nor,-rd),0.0), 3.0)*0.35;
+            float fog  = exp(-t*0.13);
+
+            col = base * diff * fog;
+            col += base * rim * fog;
+            col += base * min(u_high*0.12*u_energy, 0.25)*fog;
+
+            // Clamped edge glow
+            float eg = min(0.007/max(abs(dc),0.007), 0.55);
+            col += spectral(u_time*0.35) * eg * u_energy * 0.45;
+            col *= 0.6 + u_energy*0.4;
         }
-        col.r = mix(col.r, spectral(u_time).r, u_beat * 0.2);
-        gl_FragColor = vec4(smoothstep(-0.1, 1.1, col), 1.0);
+
+        col += spectral(u_time).rgb * u_beat * 0.07 * u_energy;
+        // Reinhard tone map
+        col = col / (col + vec3(0.55));
+        col = pow(col, vec3(0.88));
+        gl_FragColor = vec4(col, 1.0);
     }
 </script>
 
 <script>
-class VJSystem {
-    constructor() {
-        this.canvas = document.getElementById('gl');
-        this.gl = this.canvas.getContext('webgl');
-        this.state = { 
-            bass:0, mid:0, high:0, beat:0, 
-            currMode: 0, nextMode: 0, transition: 1.0,
-            startTime: Date.now() 
-        };
-        this.initGL();
-        this.bindEvents();
-        this.resize();
-        this.render = this.render.bind(this);
-        requestAnimationFrame(this.render);
-        setInterval(() => this.triggerTransition(), 10000);
-    }
+// ════════════════════════════════════════════
+//  Global state
+// ════════════════════════════════════════════
+let visMode = '3d';  // '3d' | '2d'
+let audioCtx, analyser, bassFilter, midFilter, trebleFilter;
+let audioEl;
+let eqVisible = false;
 
-    initGL() {
-        const prog = this.gl.createProgram();
-        const compile = (t, s) => {
-            const sh = this.gl.createShader(t);
-            this.gl.shaderSource(sh, s);
-            this.gl.compileShader(sh);
-            this.gl.attachShader(prog, sh);
-        };
-        compile(this.gl.VERTEX_SHADER, document.getElementById('vs').text);
-        compile(this.gl.FRAGMENT_SHADER, document.getElementById('fs').text);
-        this.gl.linkProgram(prog);
-        this.gl.useProgram(prog);
-        this.prog = prog;
+// Analysis
+let smoothBass = 0, smoothMid = 0, smoothHigh = 0;
+let beatEnergy = 0, avgEnergy = 0, energyScale = 0;
 
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.gl.createBuffer());
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), this.gl.STATIC_DRAW);
-        const p = this.gl.getAttribLocation(prog, "pos");
-        this.gl.enableVertexAttribArray(p);
-        this.gl.vertexAttribPointer(p, 2, this.gl.FLOAT, false, 0, 0);
+// 3D state
+let glState = {
+    bass:0, mid:0, high:0, beat:0,
+    currMode:0, nextMode:0, transition:1.0,
+    elapsed:0, lastFrame: Date.now(),
+    isPaused: false, autoRotate: true,
+};
+let glCtx, glProg, glUni, glCanvas;
+let autoTimer = null;
 
-        this.uni = {
-            t: this.gl.getUniformLocation(prog, "u_time"),
-            r: this.gl.getUniformLocation(prog, "u_res"),
-            b: this.gl.getUniformLocation(prog, "u_bass"),
-            m: this.gl.getUniformLocation(prog, "u_mid"),
-            h: this.gl.getUniformLocation(prog, "u_high"),
-            bt: this.gl.getUniformLocation(prog, "u_beat"),
-            trans: this.gl.getUniformLocation(prog, "u_transition"),
-            cm: this.gl.getUniformLocation(prog, "u_currMode"),
-            nm: this.gl.getUniformLocation(prog, "u_nextMode")
-        };
-    }
+// 2D state
+let c2dCtx, c2dCanvas;
+let mode2d = 'bars';
+let freqData, timeData;
+let particles = [];
+const MAX_P = 150;
+let t2d = 0;
+let W, H;
 
-    triggerTransition() {
-        this.state.currMode = this.state.nextMode;
-        this.state.nextMode = (this.state.currMode + 1) % 3;
-        this.state.transition = 0.0;
-        const names = ["PRISM_VOID", "KINETIC_CUBES", "SPECTRAL_LATTICE"];
-        document.getElementById('mode-display').innerText = "SCENE: " + names[this.state.nextMode];
-    }
+// ════════════════════════════════════════════
+//  Landing
+// ════════════════════════════════════════════
+function selectVisMode(m) {
+    visMode = m;
+    document.getElementById('btn3d').classList.toggle('active', m === '3d');
+    document.getElementById('btn2d').classList.toggle('active', m === '2d');
+}
 
-    async initAudio(type) {
-        this.ctx = new AudioContext();
-        this.analyser = this.ctx.createAnalyser();
-        if(type === 'mic') {
-            const s = await navigator.mediaDevices.getUserMedia({audio:true});
-            this.ctx.createMediaStreamSource(s).connect(this.analyser);
-            document.getElementById('track-display').innerText = "LIVE_MIC";
-        } else {
-            const file = document.getElementById('fileInput').files[0];
-            this.audio = new Audio(URL.createObjectURL(file));
-            this.ctx.createMediaElementSource(this.audio).connect(this.analyser);
-            this.analyser.connect(this.ctx.destination);
-            this.audio.play();
-            document.getElementById('track-display').innerText = file.name.slice(0,12).toUpperCase();
-        }
-        document.getElementById('landing').style.opacity = "0";
-        setTimeout(() => document.getElementById('landing').style.display = "none", 1000);
-    }
-
-    toggleUI() { document.getElementById('controller').classList.toggle('minimized'); }
-    togglePlayback() {
-        if(!this.audio) return;
-        if(this.audio.paused) { this.audio.play(); document.getElementById('pause-btn').innerText="PAUSE"; }
-        else { this.audio.pause(); document.getElementById('pause-btn').innerText="PLAY"; }
-    }
-
-    resize() {
-        this.canvas.width = window.innerWidth * window.devicePixelRatio;
-        this.canvas.height = window.innerHeight * window.devicePixelRatio;
-        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    bindEvents() {
-        window.addEventListener('resize', () => this.resize());
-        document.getElementById('fileInput').onchange = () => this.initAudio('file');
-    }
-
-    render() {
-        if(this.analyser) {
-            const d = new Uint8Array(this.analyser.frequencyBinCount);
-            this.analyser.getByteFrequencyData(d);
-            let b=0, m=0, h=0;
-            for(let i=0; i<12; i++) b += d[i];
-            for(let i=12; i<100; i++) m += d[i];
-            for(let i=100; i<250; i++) h += d[i];
-            const prevB = this.state.bass;
-            this.state.bass = b/3060; this.state.mid = m/22440; this.state.high = h/38250;
-            if(this.state.bass > prevB * 1.15) this.state.beat = 1.0;
-            this.state.beat *= 0.94;
-        }
-        if(this.state.transition < 1.0) this.state.transition += 0.008;
-        const time = (Date.now() - this.state.startTime) * 0.001;
-        this.gl.uniform1f(this.uni.t, time);
-        this.gl.uniform2f(this.uni.r, this.canvas.width, this.canvas.height);
-        this.gl.uniform1f(this.uni.b, this.state.bass);
-        this.gl.uniform1f(this.uni.m, this.state.mid);
-        this.gl.uniform1f(this.uni.h, this.state.high);
-        this.gl.uniform1f(this.uni.bt, this.state.beat);
-        this.gl.uniform1f(this.uni.trans, this.state.transition);
-        this.gl.uniform1i(this.uni.cm, this.state.currMode);
-        this.gl.uniform1i(this.uni.nm, this.state.nextMode);
-        this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
-        requestAnimationFrame(this.render);
+async function launch(source) {
+    await initAudio(source);
+    hideLanding();
+    showHUD();
+    if (visMode === '3d') {
+        document.getElementById('gl').style.display = 'block';
+        document.getElementById('c2d').style.display = 'none';
+        document.getElementById('btns-3d').style.display = 'flex';
+        document.getElementById('btns-2d').style.display = 'none';
+        startGL();
+    } else {
+        document.getElementById('gl').style.display = 'none';
+        document.getElementById('c2d').style.display = 'block';
+        document.getElementById('btns-3d').style.display = 'none';
+        document.getElementById('btns-2d').style.display = 'flex';
+        requestAnimationFrame(loop2d);
     }
 }
-const app = new VJSystem();
+
+function hideLanding() {
+    const l = document.getElementById('landing');
+    l.classList.add('fade');
+    setTimeout(() => l.style.display = 'none', 1200);
+}
+
+function showHUD() {
+    document.getElementById('hud').classList.add('visible');
+}
+
+function goHome() {
+    location.reload();
+}
+
+document.getElementById('fileInput').onchange = e => {
+    if (e.target.files[0]) launch('file');
+};
+
+// ════════════════════════════════════════════
+//  Audio init with EQ chain
+// ════════════════════════════════════════════
+async function initAudio(source) {
+    audioCtx = new AudioContext();
+
+    // EQ filter chain
+    bassFilter   = audioCtx.createBiquadFilter();
+    bassFilter.type = 'lowshelf';
+    bassFilter.frequency.value = 180;
+    bassFilter.gain.value = 0;
+
+    midFilter    = audioCtx.createBiquadFilter();
+    midFilter.type = 'peaking';
+    midFilter.frequency.value = 1200;
+    midFilter.Q.value = 0.8;
+    midFilter.gain.value = 0;
+
+    trebleFilter = audioCtx.createBiquadFilter();
+    trebleFilter.type = 'highshelf';
+    trebleFilter.frequency.value = 5000;
+    trebleFilter.gain.value = 0;
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.80;
+
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.frequencyBinCount);
+
+    // Connect chain: source → bass → mid → treble → analyser
+    bassFilter.connect(midFilter);
+    midFilter.connect(trebleFilter);
+    trebleFilter.connect(analyser);
+
+    if (source === 'mic') {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx.createMediaStreamSource(stream).connect(bassFilter);
+        document.getElementById('track-label').innerText = 'LIVE MIC';
+    } else {
+        const file = document.getElementById('fileInput').files[0];
+        audioEl = new Audio(URL.createObjectURL(file));
+        const src = audioCtx.createMediaElementSource(audioEl);
+        src.connect(bassFilter);
+        analyser.connect(audioCtx.destination);
+        audioEl.play();
+        document.getElementById('track-label').innerText = file.name.slice(0,14).toUpperCase();
+    }
+}
+
+// ════════════════════════════════════════════
+//  EQ controls
+// ════════════════════════════════════════════
+function toggleEQ() {
+    eqVisible = !eqVisible;
+    document.getElementById('eq-panel').classList.toggle('visible', eqVisible);
+    document.getElementById('eq-toggle-btn').classList.toggle('active', eqVisible);
+}
+
+function updateEQ() {
+    const b = parseFloat(document.getElementById('eq-bass').value);
+    const m = parseFloat(document.getElementById('eq-mid').value);
+    const tr = parseFloat(document.getElementById('eq-treble').value);
+    if (bassFilter)   bassFilter.gain.value   = b;
+    if (midFilter)    midFilter.gain.value     = m;
+    if (trebleFilter) trebleFilter.gain.value  = tr;
+    document.getElementById('eq-bass-val').innerText   = (b  >= 0 ? '+' : '') + b  + ' dB';
+    document.getElementById('eq-mid-val').innerText    = (m  >= 0 ? '+' : '') + m  + ' dB';
+    document.getElementById('eq-treble-val').innerText = (tr >= 0 ? '+' : '') + tr + ' dB';
+}
+
+function resetEQ() {
+    ['eq-bass','eq-mid','eq-treble'].forEach(id => {
+        document.getElementById(id).value = 0;
+    });
+    updateEQ();
+}
+
+// ════════════════════════════════════════════
+//  Shared audio analysis
+// ════════════════════════════════════════════
+function analyzeAudio() {
+    if (!analyser) return;
+    analyser.getByteFrequencyData(freqData);
+    analyser.getByteTimeDomainData(timeData);
+
+    const gain = parseFloat(document.getElementById('gain').value);
+
+    let rB = 0, rM = 0, rH = 0;
+    for (let i = 0;   i < 10;  i++) rB += freqData[i];
+    for (let i = 10;  i < 90;  i++) rM += freqData[i];
+    for (let i = 90;  i < 220; i++) rH += freqData[i];
+    rB /= (10  * 255);
+    rM /= (80  * 255);
+    rH /= (130 * 255);
+
+    smoothBass  += (rB - smoothBass)  * 0.22;
+    smoothMid   += (rM - smoothMid)   * 0.16;
+    smoothHigh  += (rH - smoothHigh)  * 0.12;
+
+    const cur = (smoothBass + smoothMid * 0.5) * gain;
+    avgEnergy += (cur - avgEnergy) * 0.004;
+
+    const norm = avgEnergy > 0.008 ? cur / (avgEnergy * 1.6) : 0;
+    energyScale += (Math.min(norm, 2.0) - energyScale) * 0.10;
+
+    // Beat detection
+    if (rB > smoothBass * 1.28 && rB > 0.1) {
+        beatEnergy = Math.min(1, (rB - smoothBass) * 6 * gain);
+    }
+    beatEnergy *= 0.89;
+
+    document.getElementById('energy-fill').style.width = Math.min(energyScale * 55, 100) + '%';
+}
+
+function togglePlay() {
+    if (audioEl) {
+        if (audioEl.paused) { audioEl.play(); document.getElementById('pause-btn').innerText = 'Pause'; }
+        else { audioEl.pause(); document.getElementById('pause-btn').innerText = 'Play'; }
+    }
+    glState.isPaused = !glState.isPaused;
+}
+
+// ════════════════════════════════════════════
+//  3D WebGL
+// ════════════════════════════════════════════
+function startGL() {
+    glCanvas = document.getElementById('gl');
+    glCtx = glCanvas.getContext('webgl');
+    resizeGL();
+    window.addEventListener('resize', resizeGL);
+
+    const prog = glCtx.createProgram();
+    const compile = (type, src) => {
+        const sh = glCtx.createShader(type);
+        glCtx.shaderSource(sh, src);
+        glCtx.compileShader(sh);
+        glCtx.attachShader(prog, sh);
+    };
+    compile(glCtx.VERTEX_SHADER, document.getElementById('vs').text);
+    compile(glCtx.FRAGMENT_SHADER, document.getElementById('fs').text);
+    glCtx.linkProgram(prog);
+    glCtx.useProgram(prog);
+    glProg = prog;
+
+    glCtx.bindBuffer(glCtx.ARRAY_BUFFER, glCtx.createBuffer());
+    glCtx.bufferData(glCtx.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), glCtx.STATIC_DRAW);
+    const p = glCtx.getAttribLocation(prog, 'pos');
+    glCtx.enableVertexAttribArray(p);
+    glCtx.vertexAttribPointer(p, 2, glCtx.FLOAT, false, 0, 0);
+
+    glUni = {
+        t:      glCtx.getUniformLocation(prog, 'u_time'),
+        r:      glCtx.getUniformLocation(prog, 'u_res'),
+        b:      glCtx.getUniformLocation(prog, 'u_bass'),
+        m:      glCtx.getUniformLocation(prog, 'u_mid'),
+        h:      glCtx.getUniformLocation(prog, 'u_high'),
+        bt:     glCtx.getUniformLocation(prog, 'u_beat'),
+        trans:  glCtx.getUniformLocation(prog, 'u_transition'),
+        cm:     glCtx.getUniformLocation(prog, 'u_currMode'),
+        nm:     glCtx.getUniformLocation(prog, 'u_nextMode'),
+        energy: glCtx.getUniformLocation(prog, 'u_energy'),
+    };
+
+    glState.lastFrame = Date.now();
+    autoTimer = setInterval(() => {
+        if (glState.autoRotate && !glState.isPaused) {
+            triggerTransition((glState.nextMode + 1) % 3);
+        }
+    }, 12000);
+
+    renderGL();
+}
+
+function resizeGL() {
+    if (!glCanvas) return;
+    glCanvas.width  = window.innerWidth  * window.devicePixelRatio;
+    glCanvas.height = window.innerHeight * window.devicePixelRatio;
+    glCtx.viewport(0, 0, glCanvas.width, glCanvas.height);
+}
+
+function triggerTransition(next) {
+    glState.currMode = glState.nextMode;
+    glState.nextMode = next;
+    glState.transition = 0.0;
+    document.querySelectorAll('#btns-3d .hud-btn').forEach((b, i) =>
+        b.classList.toggle('active', i === next)
+    );
+}
+
+function set3DScene(idx) {
+    glState.autoRotate = false;
+    triggerTransition(idx);
+    clearTimeout(window._autoResume);
+    window._autoResume = setTimeout(() => glState.autoRotate = true, 30000);
+}
+
+function renderGL() {
+    const now = Date.now();
+    const delta = (now - glState.lastFrame) * 0.001;
+    glState.lastFrame = now;
+
+    analyzeAudio();
+
+    if (!glState.isPaused) {
+        glState.elapsed += delta;
+        if (glState.transition < 1.0) glState.transition += 0.007;
+    }
+
+    const gain = parseFloat(document.getElementById('gain').value);
+
+    glCtx.uniform1f(glUni.t,      glState.elapsed);
+    glCtx.uniform2f(glUni.r,      glCanvas.width, glCanvas.height);
+    glCtx.uniform1f(glUni.b,      smoothBass * gain);
+    glCtx.uniform1f(glUni.m,      smoothMid  * gain);
+    glCtx.uniform1f(glUni.h,      smoothHigh * gain);
+    glCtx.uniform1f(glUni.bt,     beatEnergy);
+    glCtx.uniform1f(glUni.trans,  glState.transition);
+    glCtx.uniform1i(glUni.cm,     glState.currMode);
+    glCtx.uniform1i(glUni.nm,     glState.nextMode);
+    glCtx.uniform1f(glUni.energy, Math.min(energyScale, 1.5));
+
+    glCtx.drawArrays(glCtx.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(renderGL);
+}
+
+// ════════════════════════════════════════════
+//  2D Canvas
+// ════════════════════════════════════════════
+function resize2d() {
+    W = c2dCanvas.width  = window.innerWidth;
+    H = c2dCanvas.height = window.innerHeight;
+}
+
+function set2DMode(m) {
+    mode2d = m;
+    document.querySelectorAll('#btns-2d .hud-btn').forEach(b =>
+        b.classList.toggle('active', b.textContent.toLowerCase() === m ||
+            (m === 'prism' && b.textContent === 'Prism') ||
+            (m === 'orbs'  && b.textContent === 'Orbs'))
+    );
+}
+
+function loop2d() {
+    requestAnimationFrame(loop2d);
+    if (!analyser || !c2dCtx) return;
+    t2d += 0.016;
+    analyzeAudio();
+
+    const gain = parseFloat(document.getElementById('gain').value);
+
+    const trail = 0.08 + (1 - Math.min(energyScale, 1)) * 0.25;
+    c2dCtx.fillStyle = `rgba(0,0,0,${trail})`;
+    c2dCtx.fillRect(0, 0, W, H);
+
+    if      (mode2d === 'bars')  drawBars(gain);
+    else if (mode2d === 'wave')  drawWave(gain);
+    else if (mode2d === 'prism') drawPrism(gain);
+    else if (mode2d === 'orbs')  drawOrbs(gain);
+}
+
+function drawBars(gain) {
+    const n = 80, step = Math.floor(freqData.length / n);
+    const bW = W / n, hue = (t2d * 25) % 360;
+    for (let i = 0; i < n; i++) {
+        let v = 0;
+        for (let j = 0; j < step; j++) v += freqData[i * step + j];
+        v /= (step * 255);
+        const scaled = v * gain * (0.3 + energyScale * 0.7);
+        const barH = scaled * H * 0.85;
+        const x = i * bW;
+        const g = c2dCtx.createLinearGradient(0, H, 0, H - barH);
+        g.addColorStop(0,   `hsla(${hue+i*2},90%,55%,0.9)`);
+        g.addColorStop(0.6, `hsla(${hue+i*2+40},80%,65%,0.7)`);
+        g.addColorStop(1,   `hsla(${hue+i*2+80},70%,80%,0.3)`);
+        c2dCtx.fillStyle = g;
+        c2dCtx.beginPath();
+        c2dCtx.roundRect(x+1, H-barH, bW-2, barH, [3,3,0,0]);
+        c2dCtx.fill();
+        if (beatEnergy > 0.3 && scaled > 0.5) {
+            c2dCtx.fillStyle = `hsla(${hue},100%,90%,${beatEnergy*0.6})`;
+            c2dCtx.beginPath();
+            c2dCtx.ellipse(x+bW/2, H-barH-4, bW*0.4, 3, 0, 0, Math.PI*2);
+            c2dCtx.fill();
+        }
+    }
+}
+
+function drawWave(gain) {
+    const hue = (t2d * 20) % 360;
+    const amp = 0.3 + energyScale * 0.7;
+    for (let layer = 0; layer < 3; layer++) {
+        c2dCtx.beginPath();
+        c2dCtx.lineWidth = 3 - layer * 0.8;
+        c2dCtx.strokeStyle = `hsla(${hue+layer*30},85%,65%,${0.9-layer*0.25})`;
+        for (let i = 0; i < timeData.length; i++) {
+            const v = (timeData[i]/128.0-1) * gain * amp * (1+layer*0.3);
+            const x = (i/timeData.length)*W;
+            const y = H/2 + v*H*0.35 + Math.sin(i*0.05+t2d+layer*0.3)*beatEnergy*30;
+            i === 0 ? c2dCtx.moveTo(x,y) : c2dCtx.lineTo(x,y);
+        }
+        c2dCtx.stroke();
+    }
+    if (beatEnergy > 0.1) {
+        c2dCtx.beginPath();
+        c2dCtx.lineWidth = beatEnergy * 4;
+        c2dCtx.strokeStyle = `hsla(${hue+180},100%,80%,${beatEnergy*0.5})`;
+        c2dCtx.moveTo(0, H/2); c2dCtx.lineTo(W, H/2);
+        c2dCtx.stroke();
+    }
+}
+
+function drawPrism(gain) {
+    const cx = W/2, cy = H/2;
+    const sides = 12, step = (Math.PI*2)/sides;
+    const hue = (t2d*15)%360;
+    const rScale = (0.15 + energyScale*0.85) * gain;
+    c2dCtx.save(); c2dCtx.translate(cx, cy);
+    for (let s = 0; s < sides; s++) {
+        c2dCtx.save();
+        c2dCtx.rotate(step*s + t2d*0.05);
+        c2dCtx.beginPath(); c2dCtx.moveTo(0,0);
+        for (let j = 0; j < freqData.length; j += 8) {
+            const v = (freqData[j]/255)*rScale;
+            const r = v*Math.min(W,H)*0.45;
+            const a = (j/freqData.length)*Math.PI;
+            c2dCtx.lineTo(Math.cos(a)*r, Math.sin(a)*r);
+        }
+        c2dCtx.closePath();
+        c2dCtx.strokeStyle = `hsla(${hue+s*10},80%,65%,0.7)`;
+        c2dCtx.lineWidth = 1.5 + beatEnergy*2;
+        c2dCtx.stroke();
+        if (beatEnergy > 0.2) {
+            c2dCtx.fillStyle = `hsla(${hue+s*10},80%,65%,${beatEnergy*0.08})`;
+            c2dCtx.fill();
+        }
+        c2dCtx.restore();
+    }
+    c2dCtx.restore();
+}
+
+function drawOrbs(gain) {
+    const hue = (t2d*20)%360;
+    const spawn = Math.floor(energyScale*5*gain);
+    for (let i = 0; i < spawn && particles.length < MAX_P; i++) {
+        const angle = Math.random()*Math.PI*2;
+        const spd   = (0.5+Math.random()*2)*energyScale*gain;
+        const band  = Math.floor(Math.random()*80);
+        particles.push({
+            x: W/2+(Math.random()-0.5)*60, y: H/2+(Math.random()-0.5)*60,
+            vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd,
+            life: 1.0,
+            size: (4+freqData[band]/255*20*gain)*(0.3+energyScale*0.7),
+            hue: hue+band*1.5,
+        });
+    }
+    for (let i = particles.length-1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.vx *= 0.97; p.vy *= 0.97;
+        p.life -= 0.018;
+        if (p.life <= 0) { particles.splice(i,1); continue; }
+        const alpha = p.life*0.85;
+        const gr = c2dCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.size);
+        gr.addColorStop(0,   `hsla(${p.hue},90%,75%,${alpha})`);
+        gr.addColorStop(0.5, `hsla(${p.hue+30},80%,55%,${alpha*0.5})`);
+        gr.addColorStop(1,   `hsla(${p.hue+60},70%,40%,0)`);
+        c2dCtx.beginPath();
+        c2dCtx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        c2dCtx.fillStyle = gr;
+        c2dCtx.fill();
+    }
+    if (beatEnergy > 0.4) {
+        const r = beatEnergy*Math.min(W,H)*0.3;
+        const ring = c2dCtx.createRadialGradient(W/2,H/2,r*0.9,W/2,H/2,r);
+        ring.addColorStop(0,   `hsla(${hue},100%,80%,0)`);
+        ring.addColorStop(0.5, `hsla(${hue},100%,80%,${beatEnergy*0.3})`);
+        ring.addColorStop(1,   `hsla(${hue},100%,80%,0)`);
+        c2dCtx.beginPath();
+        c2dCtx.arc(W/2,H/2,r,0,Math.PI*2);
+        c2dCtx.fillStyle = ring;
+        c2dCtx.fill();
+    }
+}
+
+// ── Init 2D canvas on load ──
+window.addEventListener('DOMContentLoaded', () => {
+    c2dCanvas = document.getElementById('c2d');
+    c2dCtx    = c2dCanvas.getContext('2d');
+    resize2d();
+    window.addEventListener('resize', resize2d);
+});
 </script>
 </body>
 </html>

@@ -1,113 +1,89 @@
 import { useState } from 'react';
 
-export function Controls({ trackName, isPaused, onTogglePlayback, currentMode, modeNames, onModeSelect }) {
-  const [expanded, setExpanded] = useState(false);
-  const [showModes, setShowModes] = useState(false);
+export function Controls({
+  trackName,
+  isPaused,
+  onTogglePlayback,
+  currentMode,
+  modeNames,
+  onModeSelect,
+  onToggleManualPanel,
+  onToggleVibePanel,
+  onSceneSelect,
+  currentSceneName,
+  sceneNames,
+  currentVibe,
+}) {
+  const [expanded, setExpanded] = useState(true); // Always start expanded for now
+  const [showSceneDropdown, setShowSceneDropdown] = useState(false);
+
+  const toggleSceneDropdown = () => setShowSceneDropdown((prev) => !prev);
 
   return (
-    <div
-      id="controller"
-      className={expanded ? 'expanded' : ''}
-      style={{
-        position: 'fixed',
-        bottom: 40,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(10,10,10,0.9)',
-        border: '1px solid #333',
-        borderRadius: 50,
-        display: 'flex',
-        alignItems: 'center',
-        padding: expanded ? '12px 30px' : 0,
-        gap: expanded ? 25 : 0,
-        transition: 'all 0.6s cubic-bezier(0.19,1,0.22,1)',
-        pointerEvents: 'all',
-        backdropFilter: 'blur(20px)',
-        width: expanded ? 340 : 60,
-        height: 60,
-        overflow: 'hidden',
-        justifyContent: 'center',
-        zIndex: 200,
-      }}
-    >
-      {/* Status dot */}
-      <div
-        onClick={() => setExpanded(e => !e)}
-        style={{
-          width: 20, height: 20,
-          background: '#00f2fe',
-          borderRadius: '50%',
-          cursor: 'pointer',
-          boxShadow: '0 0 20px #00f2fe',
-          flexShrink: 0,
-        }}
-      />
+    <div id="controller" className={expanded ? 'expanded' : ''}>
+      <div className="status-dot" onClick={() => setExpanded((e) => !e)}></div>
+      <div className="hide-on-min info-text" id="track-display">
+        {trackName}
+      </div>
 
-      {expanded && (
-        <>
-          <span style={{
-            fontFamily: "'Space Mono', monospace",
-            fontSize: 10,
-            color: '#888',
-            whiteSpace: 'nowrap',
-            minWidth: 80,
-          }}>
-            {trackName}
-          </span>
-
+      <div className="hide-on-min mode-toggle">
+        {modeNames.map((name) => (
           <button
-            onClick={onTogglePlayback}
-            style={{
-              background: 'white', border: 'none', color: 'black',
-              cursor: 'pointer', padding: '8px 18px', borderRadius: 20,
-              fontFamily: "'Space Mono', monospace",
-              fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-            }}
+            key={name}
+            className={currentMode === name ? 'active' : ''}
+            onClick={() => onModeSelect(name)}
           >
-            {isPaused ? 'Play' : 'Pause'}
+            {name.replace('Mode', '')}
           </button>
+        ))}
+      </div>
 
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowModes(m => !m)}
-              style={{
-                background: 'transparent', border: '1px solid #444',
-                color: '#00f2fe', cursor: 'pointer', padding: '6px 14px',
-                borderRadius: 20, fontFamily: "'Space Mono', monospace",
-                fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                whiteSpace: 'nowrap',
+      <div className="hide-on-min scene-picker">
+        <button className="scene-btn" onClick={toggleSceneDropdown}>
+          <span id="scene-label">{currentSceneName}</span>
+          <span className="arrow">▲</span>
+        </button>
+        <div className={["scene-dropdown", showSceneDropdown ? "open" : ""].join(" ")}>
+          {sceneNames.map((scene) => (
+            <div
+              key={scene.id}
+              className={["scene-option", currentSceneName === scene.name ? "active" : ""].join(" ")}
+              onClick={() => {
+                onSceneSelect(scene.id);
+                setShowSceneDropdown(false);
               }}
             >
-              {currentMode}
-            </button>
-            {showModes && (
-              <div style={{
-                position: 'absolute', bottom: 44, left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(10,10,10,0.95)',
-                border: '1px solid #333', borderRadius: 12,
-                padding: '8px 0', minWidth: 120,
-              }}>
-                {modeNames.map(name => (
-                  <div
-                    key={name}
-                    onClick={() => { onModeSelect(name); setShowModes(false); }}
-                    style={{
-                      padding: '8px 20px', cursor: 'pointer',
-                      fontFamily: "'Space Mono', monospace",
-                      fontSize: 10, color: name === currentMode ? '#00f2fe' : '#aaa',
-                      textTransform: 'uppercase',
-                      background: name === currentMode ? 'rgba(0,242,254,0.1)' : 'transparent',
-                    }}
-                  >
-                    {name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
+              <span className="emoji">{scene.emoji}</span>
+              {scene.name}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="hide-on-min vibe-label" id="vibe-display">
+        ◆ {currentVibe ? currentVibe.label.toUpperCase() : 'NEUTRAL'}
+      </div>
+      <button
+        className="hide-on-min icon-btn"
+        onClick={onToggleManualPanel}
+        title="Manual controls"
+      >
+        ⚙
+      </button>
+      <button
+        className="hide-on-min icon-btn"
+        onClick={onToggleVibePanel}
+        title="Vibes"
+      >
+        ✦
+      </button>
+      <button
+        className="hide-on-min icon-btn primary"
+        id="pause-btn"
+        onClick={onTogglePlayback}
+      >
+        {isPaused ? '▶' : '❚❚'}
+      </button>
     </div>
   );
 }

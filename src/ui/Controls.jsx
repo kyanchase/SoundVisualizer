@@ -11,13 +11,14 @@ export function Controls({
   onToggleVibePanel,
   onSceneSelect,
   currentSceneName,
-  sceneNames,
+  sceneNames = [],
   currentVibe,
 }) {
   const [expanded, setExpanded] = useState(true); // Always start expanded for now
   const [showSceneDropdown, setShowSceneDropdown] = useState(false);
 
   const toggleSceneDropdown = () => setShowSceneDropdown((prev) => !prev);
+  const vibeLabel = typeof currentVibe === 'string' ? currentVibe : currentVibe?.label;
 
   return (
     <div id="controller" className={expanded ? 'expanded' : ''}>
@@ -26,6 +27,7 @@ export function Controls({
         {trackName}
       </div>
 
+      {sceneNames.length === 0 && (
       <div className="hide-on-min mode-toggle">
         {modeNames.map((name) => (
           <button
@@ -37,10 +39,12 @@ export function Controls({
           </button>
         ))}
       </div>
+      )}
 
+      {sceneNames.length > 0 && (
       <div className="hide-on-min scene-picker">
         <button className="scene-btn" onClick={toggleSceneDropdown}>
-          <span id="scene-label">{currentSceneName}</span>
+          <span id="scene-label">{currentSceneName || currentMode}</span>
           <span className="arrow">▲</span>
         </button>
         <div className={["scene-dropdown", showSceneDropdown ? "open" : ""].join(" ")}>
@@ -59,9 +63,10 @@ export function Controls({
           ))}
         </div>
       </div>
+      )}
 
       <div className="hide-on-min vibe-label" id="vibe-display">
-        ◆ {currentVibe ? currentVibe.label.toUpperCase() : 'NEUTRAL'}
+        ◆ {vibeLabel ? vibeLabel.toUpperCase() : 'NEUTRAL'}
       </div>
       <button
         className="hide-on-min icon-btn"

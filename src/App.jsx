@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import './App.css';
 import { Renderer } from './rendering/Renderer.js';
 import { AudioManager } from './audio/AudioManager.js';
+import { DEFAULT_AUDIO_PARAMS, VIBES } from './audio/vibes.js';
 import { Controls } from './ui/Controls.jsx';
 import { DebugPanel } from './ui/DebugPanel.jsx';
-import { PresetSelector } from './ui/Presets.jsx';
+import { ManualPanel } from './ui/ManualPanel.jsx';
+import { VibePanel } from './ui/VibePanel.jsx';
 import Loader from './ui/Loader.jsx';
 import Card from './ui/Card.jsx';
 
@@ -18,30 +21,19 @@ export default function App() {
   const [isPaused, setIsPaused]     = useState(false);
   const [trackName, setTrackName]   = useState('OFFLINE');
   const [currentMode, setMode]      = useState('Neural');
+  const [modeNames, setModeNames]   = useState([]);
   const [audioState, setAudioState] = useState(null);
   const [fps, setFps]               = useState(0);
-  const [preset, setPreset]         = useState(null);
   const [rendererInfo, setRendInfo] = useState({});
   const [loading, setLoading]       = useState(false); // New loading state
-  const [loaderText, setLoaderText] = useState("PROCESSING AUDIO"); // New loader text state
+  const [loaderText] = useState("PROCESSING AUDIO"); // New loader text state
+  const [currentVibe, setCurrentVibe] = useState('neutral');
+  const [audioParams, setAudioParams] = useState(DEFAULT_AUDIO_PARAMS);
+  const [pitchLock, setPitchLock] = useState(VIBES.neutral.pitchLock);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [vibeOpen, setVibeOpen] = useState(false);
 
-  const fpsRef = useRef({ frames: 0, last: performance.now() });
-
-  const tick = useCallback(() => {
-    fpsRef.current.frames++;
-    const now = performance.now();
-    if (now - fpsRef.current.last >= 1000) {
-      setFps(fpsRef.current.frames);
-      fpsRef.current = { frames: 0, last: now };
-    }
-    if (rendererRef.current && audioRef.current) {
-      const state = audioRef.current.getAudioState();
-      rendererRef.current.setAudioState(state);
-      setAudioState(state);
-      setRendInfo(rendererRef.current.getDebugInfo());
-    }
-    rafRef.current = requestAnimationFrame(tick);
-  }, []);
+  const fpsRef = useRef({ frames: 0, last: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -56,6 +48,25 @@ export default function App() {
 
     renderer.init().then(() => {
       setMode(renderer.currentModeName);
+      setModeNames(renderer.modeNames);
+      fpsRef.current = { frames: 0, last: performance.now() };
+
+      const tick = () => {
+        fpsRef.current.frames++;
+        const now = performance.now();
+        if (now - fpsRef.current.last >= 1000) {
+          setFps(fpsRef.current.frames);
+          fpsRef.current = { frames: 0, last: now };
+        }
+        if (rendererRef.current && audioRef.current) {
+          const state = audioRef.current.getAudioState();
+          rendererRef.current.setAudioState(state);
+          setAudioState(state);
+          setRendInfo(rendererRef.current.getDebugInfo());
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+
       rafRef.current = requestAnimationFrame(tick);
     });
 
@@ -69,9 +80,10 @@ export default function App() {
     return () => {
       window.removeEventListener('resize', onResize);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      audioRef.current?.destroy();
       renderer.destroy();
     };
-  }, [tick]);
+  }, []);
 
   const dismissLanding = useCallback(() => {
     setFade(true);
@@ -83,6 +95,8 @@ export default function App() {
       setLoading(true); // Show loader
       audioRef.current.resume();
       await audioRef.current.initMic();
+      audioRef.current.applyVibe(currentVibe);
+      audioRef.current.setPitchLock(pitchLock);
       setTrackName(audioRef.current.trackName);
       dismissLanding();
       setLoading(false); // Hide loader
@@ -90,21 +104,28 @@ export default function App() {
       setLoading(false); // Hide loader on error
       alert("Microphone access denied. Please allow microphone access and try again.");
     }
-  }, [dismissLanding]);
+  }, [currentVibe, dismissLanding, pitchLock]);
 
-  const handleFile = useCallback((file) => {
+  const handleFile = useCallback(async (file) => {
     if (!file) return;
-    setLoading(true); // Show loader
-    audioRef.current.resume();
-    audioRef.current.initFile(file);
-    setTrackName(audioRef.current.trackName);
-    dismissLanding();
-    setLoading(false); // Hide loader
-  }, [dismissLanding]);
+    try {
+      setLoading(true); // Show loader
+      audioRef.current.resume();
+      await audioRef.current.initFile(file);
+      audioRef.current.applyVibe(currentVibe);
+      audioRef.current.setPitchLock(pitchLock);
+      setTrackName(audioRef.current.trackName);
+      dismissLanding();
+      setLoading(false); // Hide loader
+    } catch {
+      setLoading(false);
+      alert("Couldn't load that audio file. Please try another track.");
+    }
+  }, [currentVibe, dismissLanding, pitchLock]);
 
   const handleTogglePlayback = useCallback(() => {
-    audioRef.current.togglePlayback();
-    setIsPaused(p => !p);
+    const paused = audioRef.current.togglePlayback();
+    setIsPaused(paused);
   }, []);
 
   const handleModeSelect = useCallback((name) => {
@@ -112,6 +133,39 @@ export default function App() {
     if (idx >= 0) rendererRef.current.setModeByIndex(idx);
     setMode(name);
   }, []);
+
+  const handleVibeSelect = useCallback((key) => {
+    const vibe = VIBES[key] || VIBES.neutral;
+    setCurrentVibe(key);
+    setAudioParams({ ...vibe.audio });
+    setPitchLock(vibe.pitchLock);
+    audioRef.current?.applyVibe(key);
+    rendererRef.current?.applyVisualPreset(vibe.visual);
+    if (rendererRef.current) {
+      setMode(rendererRef.current.currentModeName);
+      setModeNames(rendererRef.current.modeNames);
+    }
+  }, []);
+
+  const handleParamChange = useCallback((key, value) => {
+    setAudioParams((params) => ({ ...params, [key]: value }));
+    audioRef.current?.setParam(key, value);
+  }, []);
+
+  const handlePitchLock = useCallback((locked) => {
+    setPitchLock(locked);
+    audioRef.current?.setPitchLock(locked);
+  }, []);
+
+  const handleResetToVibe = useCallback(() => {
+    handleVibeSelect(currentVibe);
+  }, [currentVibe, handleVibeSelect]);
+
+  const scenes = modeNames.map((name) => ({
+    id: name,
+    name,
+    emoji: name.slice(0, 2).toUpperCase(),
+  }));
 
   return (
     <>
@@ -151,14 +205,34 @@ export default function App() {
 
       {!landed && (
         <>
-          <PresetSelector onSelect={setPreset} current={preset} />
           <Controls
             trackName={trackName}
             isPaused={isPaused}
             onTogglePlayback={handleTogglePlayback}
             currentMode={currentMode}
-            modeNames={rendererRef.current?.modeNames || []}
+            modeNames={modeNames}
             onModeSelect={handleModeSelect}
+            onToggleManualPanel={() => setManualOpen((open) => !open)}
+            onToggleVibePanel={() => setVibeOpen((open) => !open)}
+            onSceneSelect={handleModeSelect}
+            currentSceneName={currentMode}
+            sceneNames={scenes}
+            currentVibe={VIBES[currentVibe]}
+          />
+          <ManualPanel
+            open={manualOpen}
+            params={audioParams}
+            onClose={() => setManualOpen(false)}
+            onChange={handleParamChange}
+            onReset={handleResetToVibe}
+          />
+          <VibePanel
+            open={vibeOpen}
+            currentVibe={currentVibe}
+            pitchLock={pitchLock}
+            onClose={() => setVibeOpen(false)}
+            onSelect={handleVibeSelect}
+            onTogglePitchLock={handlePitchLock}
           />
         </>
       )}
@@ -168,5 +242,3 @@ export default function App() {
     </>
   );
 }
-
-

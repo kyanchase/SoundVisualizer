@@ -69,10 +69,9 @@ export class Renderer {
 
   async init() {
     // Load shaders from public/shaders/
-    const [vertSrc, cymatFrag, feedbackFrag, particlesFrag] = await Promise.all([
+    const [vertSrc, cymatFrag, particlesFrag] = await Promise.all([
       fetch('/shaders/vertex.glsl').then(r => r.text()),
       fetch('/shaders/cymatics.frag').then(r => r.text()),
-      fetch('/shaders/feedback.frag').then(r => r.text()),
       fetch('/shaders/particles.frag').then(r => r.text()),
     ]);
 
@@ -146,10 +145,10 @@ export class Renderer {
     const delta = (now - this._lastTime) * 0.001;
     this._lastTime = now;
     this._elapsedTime += delta;
-    this._tick(delta);
+    this._tick();
   }
 
-  _tick(delta) {
+  _tick() {
     const gl = this.gl;
     const audioState = this._audioState || {
       bass:0, lowMid:0, mid:0, highMid:0, treble:0, air:0,
@@ -296,6 +295,28 @@ export class Renderer {
 
   setModeByIndex(idx) {
     this._setMode(idx % this._modeNames.length);
+  }
+
+  applyVisualPreset(preset) {
+    if (!preset) return;
+
+    if (Array.isArray(preset.modeOrder)) {
+      const nextNames = preset.modeOrder.filter((name) => VISUAL_MODES[name]);
+      if (nextNames.length) {
+        const currentName = this.currentModeName;
+        this._modeNames = [
+          ...nextNames,
+          ...Object.keys(VISUAL_MODES).filter((name) => !nextNames.includes(name)),
+        ];
+        const idx = Math.max(0, this._modeNames.indexOf(currentName));
+        this._currModeIdx = idx;
+        this._nextModeIdx = (idx + 1) % this._modeNames.length;
+      }
+    }
+
+    if (typeof preset.feedbackAlpha === 'number') {
+      this.feedback.baseAlpha = preset.feedbackAlpha;
+    }
   }
 
   get currentModeName() { return this._modeNames[this._currModeIdx]; }

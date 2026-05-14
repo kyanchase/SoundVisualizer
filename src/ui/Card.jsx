@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 export default function Card({ icon, label, onClick }) {
   const [hovered, setHovered] = useState(false);

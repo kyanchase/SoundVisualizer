@@ -1,4 +1,4 @@
-export const PRESETS = {
+const PRESETS = {
   EDM: {
     feedbackAlpha: 0.88,
     modeOrder: ['Plasma', 'Neural', 'Geometry', 'Water', 'Sand'],

@@ -357,3 +357,29 @@ input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius
 .side-panel::-webkit-scrollbar { width:4px; }
 .side-panel::-webkit-scrollbar-track { background: transparent; }
 .side-panel::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+
+.vibe-item {
+    width: 100%;
+    color: #ccc;
+    text-align: left;
+}
+
+.slider-group {
+    display: block;
+}
+
+@media (max-width: 760px) {
+    #controller.expanded {
+        width: calc(100vw - 24px);
+        bottom: 18px;
+        padding: 10px 12px;
+        gap: 8px;
+    }
+
+    #manual-panel,
+    #vibe-panel {
+        left: 12px;
+        right: 12px;
+        width: auto;
+    }
+}

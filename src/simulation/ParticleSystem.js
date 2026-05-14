@@ -17,7 +17,7 @@ export class ParticleSystem {
   }
 
   update(audioState, nodalPoints) {
-    const { bass, treble, beat, mood } = audioState;
+    const { bass, treble, beat } = audioState;
     const vibration = treble * 0.004 + 0.001;
     const attraction = 0.02 + bass * 0.03;
 

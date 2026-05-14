@@ -4,7 +4,7 @@ export class WaveField {
     this.grid = new Float32Array(size * size);
   }
 
-  update(_audioState) {
+  update() {
     // Override in subclasses
   }
 

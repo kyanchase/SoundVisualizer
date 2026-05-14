@@ -26,6 +26,7 @@ export class AudioManager {
       beat: 0, bpm: 0, dropIntensity: 0,
       mood: { energy: 0, tension: 0, smoothness: 1, chaos: 0 },
       raw: new Uint8Array(1024),
+      timeRaw: new Uint8Array(2048),
       active: false,
     };
   }
@@ -254,6 +255,7 @@ export class AudioManager {
     if (!this.analyzerModule || this.isPaused) return this._state;
 
     const freqData = this.analyzerModule.getFrequencyData();
+    const timeRaw = this.analyzerModule.getTimeDomainData();
     const beatData = this.beatDetector.update(freqData);
     const mood = this.moodAnalyzer.update(freqData);
 
@@ -269,6 +271,7 @@ export class AudioManager {
       dropIntensity: beatData.dropIntensity,
       mood,
       raw:          freqData.raw,
+      timeRaw,
       active:       true,
     };
     return this._state;

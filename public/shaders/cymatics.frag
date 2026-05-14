@@ -37,6 +37,29 @@ float sdOctahedron(vec3 p, float s) {
   return (p.x + p.y + p.z - s) * 0.57735027;
 }
 
+float hash31(vec3 p) {
+  return fract(sin(dot(p, vec3(12.9, 78.2, 37.7))) * 43758.5);
+}
+
+float noise3(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(
+      mix(hash31(i), hash31(i + vec3(1.0, 0.0, 0.0)), f.x),
+      mix(hash31(i + vec3(0.0, 1.0, 0.0)), hash31(i + vec3(1.0, 1.0, 0.0)), f.x),
+      f.y
+    ),
+    mix(
+      mix(hash31(i + vec3(0.0, 0.0, 1.0)), hash31(i + vec3(1.0, 0.0, 1.0)), f.x),
+      mix(hash31(i + vec3(0.0, 1.0, 1.0)), hash31(i + vec3(1.0, 1.0, 1.0)), f.x),
+      f.y
+    ),
+    f.z
+  );
+}
+
 // --- Mode 0: Prism Void (Neural/Fractal) ---
 float mapPrismVoid(vec3 p) {
   p.z += u_time * 0.8;
@@ -100,17 +123,104 @@ float mapChladni(vec3 p) {
   return abs(p.z) - 0.04;
 }
 
+// --- Mode 5: Plasma Orb ---
+float mapPlasmaOrb(vec3 p) {
+  p.xy *= rot(u_time * 0.08 + u_camOffset.x * 0.2);
+  float n = noise3(p * 1.5 + u_time * 0.25) * 0.5;
+  n += noise3(p * 3.2 - u_time * 0.35) * 0.25;
+  n += noise3(p * 6.0 + u_mid) * 0.12;
+  float radius = 1.0 + u_bass * 0.85 + u_beat * 0.35 + n * (0.25 + u_mid * 0.75);
+  return length(p) - radius;
+}
+
+// --- Mode 6: Wave Terrain ---
+float mapWaveTerrain(vec3 p) {
+  vec2 q = p.xz;
+  float t = u_time;
+  float h = sin(q.x * 0.65 + t) * cos(q.y * 0.45 - t * 0.8) * 0.35;
+  h += sin(q.x * 1.4 - t * 1.5) * cos(q.y * 1.0 + t) * 0.18;
+  h += sin(length(q) * (1.0 + u_bass * 0.8) - t * 2.0) * (u_bass * 0.5 + u_beat * 0.35);
+  h += sin(q.x * 2.2 + t * 2.0) * sin(q.y * 1.8 + t) * u_mid * 0.35;
+  return abs(p.y - h) - (0.035 + u_beat * 0.04);
+}
+
 float map(vec3 p, int mode) {
   if (mode == 0) return mapPrismVoid(p);
   if (mode == 1) return mapKineticCubes(p);
   if (mode == 2) return mapSpectralLattice(p);
   if (mode == 3) return mapWater(p);
-  return mapChladni(p);
+  if (mode == 4) return mapChladni(p);
+  if (mode == 5) return mapPlasmaOrb(p);
+  return mapWaveTerrain(p);
 }
 
 void main() {
   vec2 uv = (gl_FragCoord.xy * 2.0 - u_res.xy) / min(u_res.x, u_res.y);
   uv *= 1.0 / (0.8 + u_zoom * 0.4);
+
+  if (u_currMode == 5) {
+    float energy = u_bass * 0.65 + u_mid * 0.35 + u_high * 0.2;
+    vec3 ro = vec3(0.0, 0.0, -4.0 - u_bass * 0.35);
+    vec3 rd = normalize(vec3(uv, 1.35 - u_bass * 0.18));
+    float t = 0.0;
+    float glow = 0.0;
+    for (int i = 0; i < 72; i++) {
+      vec3 p = ro + rd * t;
+      float d = mapPlasmaOrb(p);
+      glow += exp(-abs(d) * (2.6 - u_bass * 0.8)) * (0.01 + u_mid * 0.012);
+      if (abs(d) < 0.003 || t > 8.0) break;
+      t += d * 0.55;
+    }
+
+    vec3 col = vec3(0.0);
+    if (t < 8.0) {
+      vec3 p = ro + rd * t;
+      vec3 n = normalize(vec3(
+        mapPlasmaOrb(p + vec3(0.012, 0.0, 0.0)) - mapPlasmaOrb(p - vec3(0.012, 0.0, 0.0)),
+        mapPlasmaOrb(p + vec3(0.0, 0.012, 0.0)) - mapPlasmaOrb(p - vec3(0.0, 0.012, 0.0)),
+        mapPlasmaOrb(p + vec3(0.0, 0.0, 0.012)) - mapPlasmaOrb(p - vec3(0.0, 0.0, 0.012))
+      ));
+      float fresnel = pow(1.0 - max(0.0, dot(-rd, n)), 2.4);
+      float lava = noise3(p * (4.0 + u_mid * 5.0) + u_time * (0.8 + energy));
+      vec3 core = mix(vec3(0.12, 0.35, 1.0), vec3(1.0, 0.12, 0.75), lava);
+      vec3 rim = mix(vec3(0.2, 0.95, 1.0), vec3(1.0, 0.85, 0.25), u_beat);
+      col = core * (0.18 + energy * 0.9) + rim * fresnel * (1.2 + u_high * 1.3);
+      col += spectral(length(p) * 0.3 + u_time * 0.08) * u_beat * 0.55;
+    }
+    col += mix(vec3(0.15, 0.45, 1.0), vec3(1.0, 0.18, 0.7), 0.55) * glow * (0.75 + energy * 2.2);
+    col *= smoothstep(1.75, 0.18, length(uv));
+    col = col / (1.0 + col);
+    gl_FragColor = vec4(pow(col, vec3(0.82)), 1.0);
+    return;
+  }
+
+  if (u_currMode == 6) {
+    float energy = u_bass * 0.6 + u_mid * 0.35 + u_high * 0.15;
+    vec3 ro = vec3(0.0, 2.6 + u_bass * 0.65, -u_time * (1.2 + energy * 2.2));
+    vec3 rd = normalize(vec3(uv.x, uv.y - 0.48 + u_bass * 0.08, 1.15));
+    float t = 0.0;
+    vec3 col = vec3(0.0);
+    for (int i = 0; i < 86; i++) {
+      vec3 p = ro + rd * t;
+      float d = mapWaveTerrain(p);
+      if (abs(d) < 0.004 || t > 48.0) {
+        float wave = sin(p.x * 0.7 + u_time) + sin(p.z * 0.45 - u_time * 0.7);
+        float grid = smoothstep(0.47, 0.5, max(abs(fract(p.x * 0.45) - 0.5), abs(fract(p.z * 0.45) - 0.5)));
+        vec3 base = mix(vec3(0.04, 0.35, 0.9), vec3(0.0, 1.0, 0.85), 0.5 + 0.5 * sin(wave + u_mid * 3.0));
+        col = base * (0.25 + energy * 1.6) + vec3(0.25, 0.9, 1.0) * grid * (0.7 + u_beat);
+        col *= exp(-t * 0.055);
+        col += spectral(t * 0.03 + u_time * 0.05) * u_beat * 0.35;
+        break;
+      }
+      t += max(d * 0.72, 0.018);
+    }
+    float horizon = 1.0 - smoothstep(0.0, 0.35, abs(rd.y + 0.18));
+    col += vec3(0.1, 0.65, 1.0) * horizon * (0.18 + energy);
+    col *= smoothstep(1.7, 0.25, length(uv));
+    col = col / (1.0 + col);
+    gl_FragColor = vec4(pow(col, vec3(0.85)), 1.0);
+    return;
+  }
 
   vec3 ro = vec3(u_camOffset * 0.5, -7.0);
   vec3 rd = normalize(vec3(uv, 1.2));
@@ -130,6 +240,18 @@ void main() {
     // Color from spectral palette driven by mid (melody)
     float grad = t * 0.04 + u_time * 0.05 + u_mid * 0.8;
     col = spectral(grad);
+
+    if (u_currMode == 5 && u_nextMode == 5) {
+      vec3 p = ro + rd * t;
+      vec3 n = normalize(vec3(
+        mapPlasmaOrb(p + vec3(0.01, 0.0, 0.0)) - mapPlasmaOrb(p - vec3(0.01, 0.0, 0.0)),
+        mapPlasmaOrb(p + vec3(0.0, 0.01, 0.0)) - mapPlasmaOrb(p - vec3(0.0, 0.01, 0.0)),
+        mapPlasmaOrb(p + vec3(0.0, 0.0, 0.01)) - mapPlasmaOrb(p - vec3(0.0, 0.0, 0.01))
+      ));
+      float fresnel = pow(1.0 - max(0.0, dot(-rd, n)), 2.0);
+      col = mix(vec3(0.15, 0.45, 1.0), vec3(1.0, 0.25, 0.85), 0.5 + 0.5 * sin(length(p) * 1.7 + u_time));
+      col *= 0.25 + fresnel * (1.4 + u_high * 0.9);
+    }
 
     // Depth falloff
     col *= exp(-t * 0.12);

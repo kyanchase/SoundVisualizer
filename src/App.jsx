@@ -12,6 +12,7 @@ import Card from './ui/Card.jsx';
 
 export default function App() {
   const canvasRef   = useRef(null);
+  const canvas2dRef = useRef(null);
   const rendererRef = useRef(null);
   const audioRef    = useRef(null);
   const rafRef      = useRef(null);
@@ -20,7 +21,7 @@ export default function App() {
   const [landingFade, setFade]      = useState(false);
   const [isPaused, setIsPaused]     = useState(false);
   const [trackName, setTrackName]   = useState('OFFLINE');
-  const [currentMode, setMode]      = useState('Neural');
+  const [currentMode, setMode]      = useState('Wave Terrain');
   const [modeNames, setModeNames]   = useState([]);
   const [audioState, setAudioState] = useState(null);
   const [fps, setFps]               = useState(0);
@@ -37,10 +38,13 @@ export default function App() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
+    const canvas2d = canvas2dRef.current;
     canvas.width  = canvas.clientWidth  * window.devicePixelRatio;
     canvas.height = canvas.clientHeight * window.devicePixelRatio;
+    canvas2d.width  = canvas2d.clientWidth  * window.devicePixelRatio;
+    canvas2d.height = canvas2d.clientHeight * window.devicePixelRatio;
 
-    const renderer = new Renderer(canvas);
+    const renderer = new Renderer(canvas, canvas2d);
     rendererRef.current = renderer;
     audioRef.current = new AudioManager();
 
@@ -73,6 +77,8 @@ export default function App() {
     const onResize = () => {
       canvas.width  = canvas.clientWidth  * window.devicePixelRatio;
       canvas.height = canvas.clientHeight * window.devicePixelRatio;
+      canvas2d.width  = canvas2d.clientWidth  * window.devicePixelRatio;
+      canvas2d.height = canvas2d.clientHeight * window.devicePixelRatio;
       renderer.onResize();
     };
     window.addEventListener('resize', onResize);
@@ -175,6 +181,15 @@ export default function App() {
           position: 'fixed', inset: 0,
           width: '100vw', height: '100vh',
           display: 'block', zIndex: 1,
+        }}
+      />
+      <canvas
+        ref={canvas2dRef}
+        style={{
+          position: 'fixed', inset: 0,
+          width: '100vw', height: '100vh',
+          display: 'block', zIndex: 2,
+          pointerEvents: 'none',
         }}
       />
 

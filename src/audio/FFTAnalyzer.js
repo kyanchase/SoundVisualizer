@@ -6,6 +6,7 @@ export class FFTAnalyzer {
     this.analyser.fftSize = 2048;
     this.analyser.smoothingTimeConstant = 0.8;
     this._data = new Uint8Array(this.analyser.frequencyBinCount);
+    this._timeData = new Uint8Array(this.analyser.fftSize);
   }
 
   get node() { return this.analyser; }
@@ -21,5 +22,10 @@ export class FFTAnalyzer {
       air:     sliceBand(this._data, BANDS.air),
       raw:     this._data,
     };
+  }
+
+  getTimeDomainData() {
+    this.analyser.getByteTimeDomainData(this._timeData);
+    return this._timeData;
   }
 }

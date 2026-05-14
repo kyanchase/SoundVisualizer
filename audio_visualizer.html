@@ -1,0 +1,1514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Synesthesia</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400&display=swap" rel="stylesheet">
+<style>
+    :root { --accent: #00f2fe; --panel: rgba(10, 10, 10, 0.94); --border: #222; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width:100%; height:100%; background:#000; overflow:hidden; font-family:'DM Sans',sans-serif; color:white; }
+    canvas { position:absolute; top:0; left:0; width:100vw; height:100vh; z-index:1; display:block; }
+
+    #landing {
+        position:fixed; inset:0; display:flex; flex-direction:column;
+        align-items:center; justify-content:center;
+        background: linear-gradient(-45deg, #050505, #1a0a1a, #0a1a1a, #050505);
+        background-size: 400% 400%; animation: gradientBG 15s ease infinite;
+        z-index:100; transition: opacity 1.5s ease; pointer-events:all;
+    }
+    @keyframes gradientBG { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+
+    .title {
+        font-family:'Space Mono'; font-size:4.5vw; letter-spacing:.3em;
+        margin-bottom:50px; text-transform:uppercase; font-weight:700; color:white;
+        text-shadow: 0 0 20px rgba(255,255,255,0.2);
+    }
+    .cards { display:flex; gap:40px; }
+    .card {
+        width:220px; height:140px; border-radius:12px;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        cursor:pointer; transition: all 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+        background: linear-gradient(135deg,#e0e0e0 0%,#ffffff 50%,#d1d1d1 100%);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 15px rgba(255,255,255,0.5);
+        color:#333; font-family:'Space Mono'; font-weight:700; font-size:0.9rem;
+        text-transform:uppercase; letter-spacing:2px; border:none;
+    }
+    .card span { font-size:2.5rem; margin-bottom:10px; }
+    .card:hover { transform:translateY(-10px) scale(1.05); box-shadow:0 20px 40px rgba(0,242,254,0.3); filter:brightness(1.1); }
+
+    #loader {
+        position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:200;
+        display:none; align-items:center; justify-content:center; flex-direction:column; gap:20px;
+    }
+    #loader.active { display:flex; }
+    .spinner { width:40px; height:40px; border:2px solid #333; border-top-color: var(--accent); border-radius:50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loader-text { font-family:'Space Mono'; font-size:11px; color:#888; letter-spacing:2px; text-transform:uppercase; }
+
+    #controller {
+        position:fixed; bottom:40px; left:50%; transform:translateX(-50%);
+        background: var(--panel); border:1px solid var(--border); border-radius:50px;
+        display:flex; align-items:center; padding:0; gap:0;
+        transition: all 0.6s cubic-bezier(0.19,1,0.22,1);
+        pointer-events:all; backdrop-filter: blur(20px);
+        width:60px; height:60px; overflow:hidden; justify-content:center; z-index:50;
+    }
+    #controller.expanded { width: 680px; padding:10px 20px; gap:12px; border-radius:50px; overflow: visible; }
+
+    .status-dot { width:20px; height:20px; background:var(--accent); border-radius:50%; cursor:pointer; box-shadow:0 0 20px var(--accent); flex-shrink:0; }
+    .hide-on-min { opacity:0; display:none; }
+    #controller.expanded .hide-on-min { opacity:1; display:flex; align-items:center; }
+
+    .icon-btn {
+        background: transparent; border:1px solid var(--border); color:white; cursor:pointer;
+        width:36px; height:36px; border-radius:50%; font-family:'Space Mono';
+        font-size:14px; font-weight:700; display:flex; align-items:center; justify-content:center;
+        transition: all 0.2s; flex-shrink:0;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn.primary { background:white; color:black; border-color:white; }
+    .icon-btn.primary:hover { background: var(--accent); color:black; border-color: var(--accent); }
+
+    .info-text { font-family:'Space Mono'; font-size:10px; color:#888; white-space:nowrap; max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+    .vibe-label { font-family:'Space Mono'; font-size:10px; color:var(--accent); letter-spacing:2px; text-transform:uppercase; white-space:nowrap; }
+
+    .mode-toggle { display:flex; border:1px solid var(--border); border-radius:20px; overflow:hidden; font-family:'Space Mono'; font-size:10px; flex-shrink:0; }
+    .mode-toggle button { background:transparent; border:none; color:#888; padding:8px 12px; cursor:pointer; font-family:inherit; font-size:inherit; letter-spacing:1px; transition: all 0.2s; }
+    .mode-toggle button.active { background: var(--accent); color:#000; }
+
+    /* Scene picker */
+    .scene-picker {
+        position: relative; flex-shrink:0;
+    }
+    .scene-btn {
+        background:transparent; border:1px solid var(--border); color:#ccc;
+        padding: 8px 14px; border-radius:20px; font-family:'Space Mono';
+        font-size:10px; letter-spacing:1px; text-transform:uppercase; cursor:pointer;
+        display:flex; align-items:center; gap:6px; transition: all 0.2s;
+        white-space:nowrap;
+    }
+    .scene-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .scene-btn .arrow { font-size:8px; opacity:0.6; }
+    .scene-dropdown {
+        position:absolute; bottom: calc(100% + 8px); left:50%; transform: translateX(-50%) translateY(4px);
+        background: var(--panel); border: 1px solid var(--border); border-radius:10px;
+        min-width: 200px; backdrop-filter: blur(20px);
+        opacity:0; pointer-events:none; transition: all 0.2s;
+        overflow:hidden;
+    }
+    .scene-dropdown.open { opacity:1; pointer-events:auto; transform: translateX(-50%) translateY(0); }
+    .scene-option {
+        padding: 10px 14px; cursor:pointer; font-family:'DM Sans'; font-size:12px;
+        color:#ccc; transition: all 0.15s; border-bottom: 1px solid rgba(255,255,255,0.03);
+        display:flex; align-items:center; gap:10px;
+    }
+    .scene-option:last-child { border-bottom: none; }
+    .scene-option:hover { background: rgba(255,255,255,0.05); color:white; }
+    .scene-option.active { color: var(--accent); background: rgba(0,242,254,0.06); }
+    .scene-option .emoji { font-size:14px; opacity:0.8; }
+
+    #fileInput { display:none; }
+
+    .side-panel {
+        position: fixed; top: 30px; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 16px; padding: 22px; z-index: 60; backdrop-filter: blur(20px);
+        pointer-events: all; max-height: calc(100vh - 60px); overflow-y: auto;
+        transition: transform 0.5s cubic-bezier(0.19,1,0.22,1);
+    }
+    #vibe-panel { right: 30px; width: 340px; transform: translateX(120%); }
+    #vibe-panel.open { transform: translateX(0); }
+    #manual-panel { left: 30px; width: 320px; transform: translateX(-120%); }
+    #manual-panel.open { transform: translateX(0); }
+
+    .side-panel h3 { font-family:'Space Mono'; font-size:11px; letter-spacing:3px; text-transform:uppercase; color:#888; margin-bottom:14px; font-weight:400; }
+    .side-panel h3 span { color: var(--accent); }
+
+    .vibe-list { display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
+    .vibe-item { padding: 11px 14px; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-family:'DM Sans'; font-size:13px; transition: all 0.2s; background: rgba(255,255,255,0.02); display:flex; align-items:center; gap:12px; }
+    .vibe-item:hover { border-color:#555; background: rgba(255,255,255,0.05); }
+    .vibe-item.active { border-color: var(--accent); background: rgba(0,242,254,0.08); color:var(--accent); }
+    .vibe-item .emoji { font-size:18px; flex-shrink:0; }
+    .vibe-item .meta { flex:1; display:flex; flex-direction:column; gap:2px; }
+    .vibe-item .sub { font-size:9px; color:#666; font-family:'Space Mono'; letter-spacing:1px; text-transform:uppercase; }
+
+    .pitch-box { padding:12px 14px; border:1px solid var(--border); border-radius:8px; margin-bottom:10px; background: rgba(0,0,0,0.3); }
+    .pitch-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .pitch-label { font-family:'Space Mono'; font-size:10px; color:#aaa; letter-spacing:1px; text-transform:uppercase; flex:1; }
+    .pitch-reason { font-family:'DM Sans'; font-size:11px; color:#888; line-height:1.5; font-weight:300; }
+    .toggle-switch { width:32px; height:18px; background:#222; border-radius:10px; position:relative; cursor:pointer; transition: background 0.2s; flex-shrink:0; }
+    .toggle-switch.on { background: var(--accent); }
+    .toggle-switch::after { content:''; position:absolute; width:14px; height:14px; background:white; border-radius:50%; top:2px; left:2px; transition: left 0.2s; }
+    .toggle-switch.on::after { left:16px; background:#000; }
+    .recommend-tag { font-family:'Space Mono'; font-size:8px; letter-spacing:1px; color: var(--accent); text-transform:uppercase; margin-bottom:8px; }
+
+    .close-btn { position:absolute; top:14px; right:14px; background:transparent; border:none; color:#666; cursor:pointer; font-size:20px; line-height:1; }
+    .close-btn:hover { color:white; }
+
+    .slider-group { margin-bottom: 14px; }
+    .slider-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px; font-family:'Space Mono'; font-size:10px; letter-spacing:1px; text-transform:uppercase; }
+    .slider-header .name { color:#aaa; }
+    .slider-header .value { color: var(--accent); font-variant-numeric: tabular-nums; }
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; background: #222; border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 8px rgba(0,242,254,0.5); }
+    input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; border: none; background: var(--accent); cursor: pointer; }
+    .reset-btn { width: 100%; padding: 10px; margin-top: 10px; background: transparent; border: 1px solid var(--border); color: #888; border-radius: 8px; font-family:'Space Mono'; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; }
+    .reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .section-divider { font-family:'Space Mono'; font-size:9px; letter-spacing:2px; color:#555; text-transform:uppercase; margin: 16px 0 10px; padding-top:12px; border-top:1px solid var(--border); }
+
+    .side-panel::-webkit-scrollbar { width:4px; }
+    .side-panel::-webkit-scrollbar-track { background: transparent; }
+    .side-panel::-webkit-scrollbar-thumb { background:#333; border-radius:2px; }
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<canvas id="c2d" style="display:none;"></canvas>
+
+<div id="ui-layer">
+    <div id="landing">
+        <div class="title">Synesthesia</div>
+        <div class="cards">
+            <div class="card" onclick="app.initAudio('mic')"><span>🎙️</span>Microphone</div>
+            <div class="card" onclick="document.getElementById('fileInput').click()"><span>🎵</span>Upload Track</div>
+        </div>
+    </div>
+
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="loader-text">PROCESSING AUDIO</div>
+    </div>
+
+    <div id="controller">
+        <div class="status-dot" onclick="app.toggleUI()"></div>
+        <div class="hide-on-min info-text" id="track-display">OFFLINE</div>
+
+        <div class="hide-on-min mode-toggle">
+            <button id="mode-2d" onclick="app.setVisualMode('2d')">2D</button>
+            <button id="mode-3d" class="active" onclick="app.setVisualMode('3d')">3D</button>
+        </div>
+
+        <div class="hide-on-min scene-picker">
+            <button class="scene-btn" onclick="app.toggleSceneDropdown()">
+                <span id="scene-label">Waves</span>
+                <span class="arrow">▲</span>
+            </button>
+            <div class="scene-dropdown" id="scene-dropdown"></div>
+        </div>
+
+        <div class="hide-on-min vibe-label" id="vibe-display">◆ NEUTRAL</div>
+        <button class="hide-on-min icon-btn" onclick="app.toggleManualPanel()" title="Manual controls">⚙</button>
+        <button class="hide-on-min icon-btn" onclick="app.toggleVibePanel()" title="Vibes">✦</button>
+        <button class="hide-on-min icon-btn primary" id="pause-btn" onclick="app.togglePlayback()">❚❚</button>
+    </div>
+
+    <div id="vibe-panel" class="side-panel">
+        <button class="close-btn" onclick="app.toggleVibePanel()">×</button>
+        <h3>Vibe <span>Transform</span></h3>
+        <div class="vibe-list" id="vibe-list"></div>
+        <div class="pitch-box">
+            <div class="recommend-tag" id="pitch-recommend">◆ Recommended: off</div>
+            <div class="pitch-row">
+                <div class="pitch-label">Preserve pitch</div>
+                <div class="toggle-switch" id="pitch-toggle" onclick="app.togglePitchLock()"></div>
+            </div>
+            <div class="pitch-reason" id="pitch-reason">Tempo at 100% — no pitch shift either way.</div>
+        </div>
+    </div>
+
+    <div id="manual-panel" class="side-panel">
+        <button class="close-btn" onclick="app.toggleManualPanel()">×</button>
+        <h3>Manual <span>Controls</span></h3>
+        <div class="section-divider">Tempo</div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Playback speed</span><span class="value" id="v-tempo">100%</span></div><input type="range" id="s-tempo" min="0.5" max="1.5" step="0.01" value="1"></div>
+        <div class="section-divider">Filters</div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Highpass</span><span class="value" id="v-highpass">20 Hz</span></div><input type="range" id="s-highpass" min="20" max="500" step="5" value="20"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Lowpass</span><span class="value" id="v-lowpass">20 kHz</span></div><input type="range" id="s-lowpass" min="500" max="20000" step="100" value="20000"></div>
+        <div class="section-divider">EQ</div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Bass</span><span class="value" id="v-bass">0 dB</span></div><input type="range" id="s-bass" min="-12" max="12" step="0.5" value="0"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Mid</span><span class="value" id="v-mid">0 dB</span></div><input type="range" id="s-mid" min="-12" max="12" step="0.5" value="0"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Treble</span><span class="value" id="v-high">0 dB</span></div><input type="range" id="s-high" min="-12" max="12" step="0.5" value="0"></div>
+        <div class="section-divider">Effects</div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Reverb</span><span class="value" id="v-reverb">0%</span></div><input type="range" id="s-reverb" min="0" max="1" step="0.01" value="0"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Distortion</span><span class="value" id="v-dist">0%</span></div><input type="range" id="s-dist" min="0" max="1" step="0.01" value="0"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Vinyl crackle</span><span class="value" id="v-vinyl">0%</span></div><input type="range" id="s-vinyl" min="0" max="0.3" step="0.005" value="0"></div>
+        <div class="slider-group"><div class="slider-header"><span class="name">Compression</span><span class="value" id="v-comp">0%</span></div><input type="range" id="s-comp" min="0" max="1" step="0.01" value="0"></div>
+        <button class="reset-btn" onclick="app.resetToVibe()">Reset to vibe default</button>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept="audio/*">
+
+<!-- Shared vertex shader -->
+<script id="vs" type="x-shader/x-vertex">
+    attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }
+</script>
+
+<!-- =========================================
+     3D SCENE 1: WAVES
+     ========================================= -->
+<script id="fs-waves" type="x-shader/x-fragment">
+    precision highp float;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat;
+    uniform float u_warm, u_speed, u_react, u_dark;
+    uniform vec3 u_colA, u_colB;
+    uniform vec2 u_res;
+
+    float surface(vec2 p) {
+        float t = u_time * u_speed;
+        float h = sin(p.x * 0.5 + t) * cos(p.y * 0.4 - t * 0.8) * 0.5;
+        h += sin(p.x * 1.2 - t * 1.5) * cos(p.y * 1.0 + t) * 0.25;
+        // Restored dynamic ripples, avoiding full screen blowout
+        h += sin(p.x * 2.0 + t * 2.0) * sin(p.y * 1.8 + t) * u_mid * u_react * 1.0;
+        float bassPulse = u_bass * u_react * 1.2;
+        h += bassPulse * sin(length(p) * 0.6 - t * 2.0);
+        h += u_beat * sin(length(p) * 1.5 - t * 4.0) * 0.8;
+        return h;
+    }
+
+    void main() {
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy) / min(u_res.x, u_res.y);
+        float energy = u_bass*0.6 + u_mid*0.3 + u_high*0.2;
+        float brightness = 0.08 + energy * u_react * 1.5;
+
+        // Camera stays lower, doesn't bounce wildly off screen
+        vec3 ro = vec3(0.0, 3.0 + u_bass * u_react * 0.6, -u_time * u_speed * 2.0);
+        float pitch = 0.6 - u_bass * u_react * 0.1;
+        vec3 rd = normalize(vec3(uv.x, uv.y - pitch, 1.0));
+
+        vec3 col = vec3(0.0);
+
+        if (rd.y < -0.01) {
+            float t = -ro.y / rd.y;
+            if (t > 0.0 && t < 50.0) {
+                vec2 hitP = vec2(ro.x + rd.x * t, ro.z + rd.z * t);
+                float h = surface(hitP);
+                float tAdj = (h - ro.y) / rd.y;
+                if (tAdj > 0.0) t = tAdj;
+                vec2 p = vec2(ro.x + rd.x * t, ro.z + rd.z * t);
+                h = surface(p);
+
+                float eps = 0.1;
+                float hx = surface(p + vec2(eps, 0.0)) - h;
+                float hz = surface(p + vec2(0.0, eps)) - h;
+                vec3 n = normalize(vec3(-hx, eps, -hz));
+
+                vec2 g = abs(fract(p * 0.5) - 0.5);
+                float grid = smoothstep(0.48, 0.5, max(g.x, g.y));
+
+                float heightT = h * 0.4 + 0.5;
+                vec3 waveCol = mix(u_colA, u_colB, clamp(heightT, 0.0, 1.0));
+
+                float peak = smoothstep(-0.2, 1.2, h);
+                waveCol += mix(u_colA, u_colB, 0.8) * peak * 0.8;
+                vec3 gridCol = mix(u_colA, u_colB, 0.7) * grid;
+
+                float rim = pow(1.0 - max(0.0, n.y), 3.0);
+                waveCol += mix(u_colA, u_colB, 0.5) * rim * (0.4 + u_high * u_react * 0.8);
+
+                float fog = exp(-t * 0.06);
+                col = (waveCol * 0.5 + gridCol * 1.2) * fog;
+                col += gridCol * u_beat * 1.2;
+                col += mix(u_colA, u_colB, 0.6) * u_bass * u_react * 0.3 * fog;
+            }
+        }
+
+        if (rd.y > -0.01 || col == vec3(0.0)) {
+            float sky = smoothstep(-0.2, 0.6, rd.y);
+            col += mix(u_colA, u_colB, 0.3) * sky * 0.15 * brightness;
+        }
+
+        float horizon = 1.0 - smoothstep(0.0, 0.3, abs(rd.y + 0.15));
+        col += mix(u_colA, u_colB, 0.5) * horizon * (0.15 + energy * 0.8);
+        col *= brightness;
+        col.r += u_warm * 0.08;
+        col.b -= u_warm * 0.05;
+        col *= smoothstep(1.8, 0.3, length(uv));
+        col *= 1.0 - u_dark * 0.35;
+        col = col / (1.0 + col);
+        col = pow(col, vec3(0.85 + u_dark * 0.15));
+
+        gl_FragColor = vec4(col, 1.0);
+    }
+</script>
+
+<!-- =========================================
+     3D SCENE 2: PRISM VOID
+     ========================================= -->
+<script id="fs-prism" type="x-shader/x-fragment">
+    precision highp float;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat;
+    uniform float u_warm, u_speed, u_react, u_dark;
+    uniform vec3 u_colA, u_colB;
+    uniform vec2 u_res;
+    mat2 rot(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
+    float octa(vec3 p, float s){p=abs(p);return (p.x+p.y+p.z-s)*0.57735027;}
+
+    float map(vec3 p){
+        p.z += u_time*0.8*u_speed;
+        p.xy *= rot(p.z*0.08 + u_time*0.05*u_speed);
+        vec3 q = mod(p, 10.0) - 5.0;
+        for(int i=0;i<4;i++){
+            q = abs(q) - 1.4;
+            q.xz *= rot(u_time*0.2*u_speed + u_bass*u_react*0.3);
+            q *= 1.25;
+        }
+        // Tightened shape so it stays structural in quiet moments
+        return octa(q, 1.0 + u_bass*u_react*1.0 + u_beat*0.5)*0.1;
+    }
+    vec3 pal(float t){return mix(u_colA, u_colB, 0.5+0.5*sin(t*6.28+u_time*0.2));}
+
+    void main(){
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy)/min(u_res.x, u_res.y);
+        float energy = u_bass*0.6 + u_mid*0.3 + u_high*0.2;
+        float brightness = 0.1 + energy * u_react * 1.5;
+
+        vec3 ro = vec3(0,0,-7); vec3 rd = normalize(vec3(uv, 1.3 - u_bass*u_react*0.2));
+        float t = 0.0, glow = 0.0;
+        for(int i=0;i<80;i++){
+            vec3 p = ro+rd*t; float d = map(p);
+            glow += exp(-d*6.0)*0.012;
+            if(abs(d)<0.003||t>40.0)break; t += d*0.8;
+        }
+        vec3 col = vec3(0);
+        if(t<40.0){ col = pal(t*0.04); col *= exp(-t*(0.13+u_dark*0.2)); }
+        col += mix(u_colA, u_colB, 0.5)*glow*(0.3+energy*1.2);
+        col += vec3(u_high*u_react*0.2);
+        col += mix(u_colA, vec3(1.0), 0.3) * u_beat * 0.6;
+        col.r += u_warm*0.08; col.b -= u_warm*0.06;
+        col *= brightness;
+        col *= smoothstep(1.7, 0.2, length(uv));
+        col *= 1.0 - u_dark*0.3;
+        col = col/(1.0+col); col = pow(col, vec3(0.85+u_dark*0.15));
+        gl_FragColor = vec4(col, 1.0);
+    }
+</script>
+
+<!-- =========================================
+     3D SCENE 3: KINETIC CUBES
+     ========================================= -->
+<script id="fs-cubes" type="x-shader/x-fragment">
+    precision highp float;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat;
+    uniform float u_warm, u_speed, u_react, u_dark;
+    uniform vec3 u_colA, u_colB;
+    uniform vec2 u_res;
+    mat2 rot(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
+    float cube(vec3 p, vec3 s){ vec3 q = abs(p) - s; return length(max(q, 0.0)) + min(max(q.x,max(q.y,q.z)), 0.0); }
+
+    float map(vec3 p){
+        p.xz *= rot(u_time*0.2*u_speed);
+        p.yz *= rot(u_time*0.15*u_speed);
+        vec3 q = mod(p, 7.0) - 3.5;
+        vec3 id = floor(p/7.0);
+        float seed = fract(sin(dot(id, vec3(12.1,78.3,45.7)))*43758.5);
+        q.xy *= rot(u_time*0.4*u_speed + seed*6.28 + u_beat*0.5);
+        q.yz *= rot(u_time*0.3*u_speed + length(id)*0.1);
+        float size = 0.3 + u_bass*u_react*0.8 + seed*0.2;
+        return cube(q, vec3(size));
+    }
+    vec3 pal(float t){return mix(u_colA, u_colB, 0.5+0.5*sin(t*2.5+u_time*0.3));}
+
+    void main(){
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy)/min(u_res.x, u_res.y);
+        float energy = u_bass*0.6 + u_mid*0.3 + u_high*0.2;
+        float brightness = 0.1 + energy * u_react * 1.5;
+
+        vec3 ro = vec3(0,0,-10); vec3 rd = normalize(vec3(uv, 1.2 - u_bass*u_react*0.2));
+        float t = 0.0, glow = 0.0;
+        for(int i=0;i<70;i++){
+            vec3 p = ro+rd*t; float d = map(p);
+            glow += exp(-d*5.0)*0.01;
+            if(abs(d)<0.002||t>40.0)break; t += d*0.8;
+        }
+        vec3 col = vec3(0);
+        if(t<40.0){ col = pal(t*0.05); col *= exp(-t*(0.12+u_dark*0.2)); }
+        col += mix(u_colA, u_colB, 0.6)*glow*(0.3+energy*1.2);
+        col += mix(u_colA, vec3(1.0), 0.3) * u_beat * 0.6;
+        col += vec3(u_high*u_react*0.15);
+        col.r += u_warm*0.08; col.b -= u_warm*0.06;
+        col *= brightness;
+        col *= smoothstep(1.7, 0.3, length(uv));
+        col *= 1.0 - u_dark*0.3;
+        col = col/(1.0+col); col = pow(col, vec3(0.85+u_dark*0.15));
+        gl_FragColor = vec4(col, 1.0);
+    }
+</script>
+
+<!-- =========================================
+     3D SCENE 4: SPECTRAL LATTICE
+     ========================================= -->
+<script id="fs-lattice" type="x-shader/x-fragment">
+    precision highp float;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat;
+    uniform float u_warm, u_speed, u_react, u_dark;
+    uniform vec3 u_colA, u_colB;
+    uniform vec2 u_res;
+    mat2 rot(float a){return mat2(cos(a),-sin(a),sin(a),cos(a));}
+
+    float map(vec3 p){
+        p.z += u_time*0.6*u_speed;
+        p.xy *= rot(sin(u_time*0.1*u_speed)*0.5 + u_bass*u_react*0.3);
+        vec3 q = abs(mod(p, 4.0) - 2.0);
+        for(int i=0;i<3;i++){
+            q = abs(q) - 0.5;
+            q.xy *= rot(u_time*0.25*u_speed);
+            q *= 1.5 + u_bass*u_react*0.3;
+        }
+        float d1 = length(q.xz) - (0.05 + u_mid*u_react*0.6);
+        float d2 = length(q.yz) - (0.05 + u_mid*u_react*0.6);
+        return min(d1, d2);
+    }
+    vec3 pal(float t){return mix(u_colA, u_colB, 0.5+0.5*sin(t*4.0+u_time*0.25));}
+
+    void main(){
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy)/min(u_res.x, u_res.y);
+        float energy = u_bass*0.5 + u_mid*0.35 + u_high*0.15;
+        float brightness = 0.08 + energy * u_react * 1.5;
+
+        vec3 ro = vec3(0,0,-5); vec3 rd = normalize(vec3(uv, 1.5));
+        float t = 0.0, glow = 0.0;
+        for(int i=0;i<80;i++){
+            vec3 p = ro+rd*t; float d = map(p);
+            glow += exp(-d*10.0)*0.015;
+            if(abs(d)<0.002||t>30.0)break; t += d*0.9;
+        }
+        vec3 col = vec3(0);
+        if(t<30.0){ col = pal(t*0.08); col *= exp(-t*(0.18+u_dark*0.2)); }
+        col += mix(u_colA, u_colB, 0.7)*glow*(0.4+energy*1.2);
+        col += vec3(u_high*u_react*0.25);
+        col += mix(u_colA, vec3(1.0), 0.2) * u_beat * 0.5;
+        col.r += u_warm*0.08; col.b -= u_warm*0.06;
+        col *= brightness;
+        col *= smoothstep(1.6, 0.3, length(uv));
+        col *= 1.0 - u_dark*0.3;
+        col = col/(1.0+col); col = pow(col, vec3(0.85+u_dark*0.15));
+        gl_FragColor = vec4(col, 1.0);
+    }
+</script>
+
+<!-- =========================================
+     3D SCENE 5: PLASMA SPHERE
+     ========================================= -->
+<script id="fs-plasma" type="x-shader/x-fragment">
+    precision highp float;
+    uniform float u_time, u_bass, u_mid, u_high, u_beat;
+    uniform float u_warm, u_speed, u_react, u_dark;
+    uniform vec3 u_colA, u_colB;
+    uniform vec2 u_res;
+
+    float hash(vec3 p){return fract(sin(dot(p, vec3(12.9,78.2,37.7)))*43758.5);}
+    float noise(vec3 p){
+        vec3 i = floor(p), f = fract(p);
+        f = f*f*(3.0-2.0*f);
+        return mix(mix(mix(hash(i), hash(i+vec3(1,0,0)), f.x),
+                       mix(hash(i+vec3(0,1,0)), hash(i+vec3(1,1,0)), f.x), f.y),
+                   mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
+                       mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z);
+    }
+
+    float map(vec3 p){
+        float n = noise(p*1.5 + u_time*0.3*u_speed)*0.5;
+        n += noise(p*3.0 + u_time*0.5*u_speed)*0.25;
+        // Tightened so sphere stays small when quiet
+        float r = 0.8 + u_bass*u_react*1.0 + u_beat*0.4 + n*(0.2 + u_mid*u_react*1.0);
+        return length(p) - r;
+    }
+    vec3 pal(float t){return mix(u_colA, u_colB, 0.5+0.5*sin(t*3.14+u_time*0.2));}
+
+    void main(){
+        vec2 uv = (gl_FragCoord.xy*2.0 - u_res.xy)/min(u_res.x, u_res.y);
+        float energy = u_bass*0.6 + u_mid*0.3 + u_high*0.2;
+        float brightness = 0.12 + energy * u_react * 1.5;
+
+        vec3 ro = vec3(0,0,-4); vec3 rd = normalize(vec3(uv, 1.4));
+        float t = 0.0, glow = 0.0;
+        for(int i=0;i<60;i++){
+            vec3 p = ro+rd*t; float d = map(p);
+            glow += exp(-abs(d)*3.0)*0.012;
+            if(abs(d)<0.003||t>8.0)break; t += d*0.6;
+        }
+        vec3 col = vec3(0);
+        if(t<8.0){
+            vec3 p = ro+rd*t;
+            vec3 n = normalize(vec3(
+                map(p+vec3(0.01,0,0))-map(p-vec3(0.01,0,0)),
+                map(p+vec3(0,0.01,0))-map(p-vec3(0,0.01,0)),
+                map(p+vec3(0,0,0.01))-map(p-vec3(0,0,0.01))
+            ));
+            float fresnel = pow(1.0 - max(0.0, dot(-rd, n)), 2.0);
+            col = pal(length(p)*0.5 + u_bass*0.4);
+            col *= 0.2 + fresnel*(1.2 + u_high*u_react*0.8);
+            col *= exp(-t*(0.08+u_dark*0.15));
+        }
+        col += mix(u_colA, u_colB, 0.8)*glow*(0.6+energy*1.2);
+        col += mix(u_colA, vec3(1.0), 0.3) * u_beat * 0.8;
+        col.r += u_warm*0.08; col.b -= u_warm*0.06;
+        col *= brightness;
+        col *= smoothstep(1.7, 0.2, length(uv));
+        col *= 1.0 - u_dark*0.3;
+        col = col/(1.0+col); col = pow(col, vec3(0.85+u_dark*0.15));
+        gl_FragColor = vec4(col, 1.0);
+    }
+</script>
+
+<script>
+// ============================================
+// VIBES
+// ============================================
+const VIBES = {
+    neutral: { label:'Neutral', emoji:'◆', sub:'original',
+        audio:{tempo:1.0,lowpass:20000,highpass:20,reverbWet:0,bassGain:0,midGain:0,highGain:0,distortion:0,vinyl:0,compression:0},
+        visual:{warm:0,speed:1.0,react:1.0,dark:0.1,colA:[0.3,0.2,0.6],colB:[0.1,0.5,0.8]},
+        pitchLock:false, pitchReason:'Tempo at 100% — no pitch shift either way.' },
+    melancholic: { label:'Melancholic', emoji:'🌧', sub:'slow + reverb',
+        audio:{tempo:0.82,lowpass:7000,highpass:60,reverbWet:0.55,bassGain:-2,midGain:1,highGain:-4,distortion:0,vinyl:0,compression:0},
+        visual:{warm:-0.3,speed:0.5,react:0.7,dark:0.5,colA:[0.15,0.2,0.35],colB:[0.35,0.3,0.5]},
+        pitchLock:false, pitchReason:'Off recommended. The "slowed + reverb" sound defines this vibe — letting pitch drop with tempo creates that heavy, drowned feel.' },
+    edm: { label:'High-Energy EDM', emoji:'⚡', sub:'fast + punchy',
+        audio:{tempo:1.12,lowpass:20000,highpass:40,reverbWet:0.12,bassGain:5,midGain:0,highGain:3,distortion:0.15,vinyl:0,compression:0.6},
+        visual:{warm:0.15,speed:1.6,react:1.4,dark:0,colA:[0.9,0.2,0.6],colB:[0.2,0.7,1.0]},
+        pitchLock:true, pitchReason:'On recommended. Speeding up without preserving pitch makes vocals chipmunk-like. Keep pitch so it still sounds like the same singer.' },
+    lofi: { label:'Lo-fi', emoji:'📼', sub:'vinyl + muffled',
+        audio:{tempo:0.88,lowpass:4500,highpass:100,reverbWet:0.25,bassGain:2,midGain:-1,highGain:-6,distortion:0.05,vinyl:0.15,compression:0.3},
+        visual:{warm:0.25,speed:0.7,react:0.8,dark:0.3,colA:[0.55,0.4,0.35],colB:[0.35,0.35,0.5]},
+        pitchLock:false, pitchReason:'Off recommended. Lo-fi hip hop leans on a slightly pitched-down, tape-warped feel — letting pitch drop adds to the warmth.' },
+    reggae: { label:'Reggae Dub', emoji:'🌴', sub:'warm + wide reverb',
+        audio:{tempo:0.92,lowpass:9000,highpass:50,reverbWet:0.4,bassGain:4,midGain:0,highGain:-2,distortion:0,vinyl:0,compression:0.2},
+        visual:{warm:0.3,speed:0.8,react:1.0,dark:0.1,colA:[0.7,0.5,0.2],colB:[0.2,0.55,0.3]},
+        pitchLock:true, pitchReason:'On recommended. Only 8% slower — preserving pitch keeps vocals natural while reverb and bass do the mood work.' },
+    punk: { label:'Rock / Punk', emoji:'🔥', sub:'distortion + bite',
+        audio:{tempo:1.05,lowpass:20000,highpass:80,reverbWet:0.08,bassGain:3,midGain:4,highGain:2,distortion:0.55,vinyl:0,compression:0.7},
+        visual:{warm:0.1,speed:1.3,react:1.4,dark:0.2,colA:[0.8,0.15,0.15],colB:[0.7,0.5,0.1]},
+        pitchLock:true, pitchReason:'On recommended. The aggression comes from distortion + compression, not tempo. Keep pitch so vocals stay powerful, not squeaky.' },
+    jazz: { label:'Jazz / Soul', emoji:'🎷', sub:'warm + smooth',
+        audio:{tempo:0.95,lowpass:10000,highpass:40,reverbWet:0.35,bassGain:2,midGain:2,highGain:-1,distortion:0,vinyl:0.04,compression:0.3},
+        visual:{warm:0.3,speed:0.85,react:0.9,dark:0.25,colA:[0.55,0.3,0.25],colB:[0.3,0.2,0.4]},
+        pitchLock:true, pitchReason:'On recommended. A small tempo nudge shouldn\'t change vocal character — jazz is about timbre and space.' },
+    gothic: { label:'Dark / Gothic', emoji:'🜃', sub:'cavernous + slow',
+        audio:{tempo:0.75,lowpass:5500,highpass:70,reverbWet:0.7,bassGain:3,midGain:-2,highGain:-5,distortion:0.1,vinyl:0,compression:0.2},
+        visual:{warm:-0.4,speed:0.45,react:0.8,dark:0.65,colA:[0.2,0.08,0.3],colB:[0.4,0.15,0.25]},
+        pitchLock:false, pitchReason:'Off recommended. Deep pitch-down is core to the gothic/doom aesthetic — it makes voices feel inhuman and cavernous.' },
+    cinematic: { label:'Orchestral / Cinematic', emoji:'🎬', sub:'hall reverb + wide',
+        audio:{tempo:0.9,lowpass:14000,highpass:30,reverbWet:0.6,bassGain:2,midGain:1,highGain:1,distortion:0,vinyl:0,compression:0.25},
+        visual:{warm:0,speed:0.75,react:1.0,dark:0.3,colA:[0.2,0.3,0.6],colB:[0.6,0.6,0.85]},
+        pitchLock:true, pitchReason:'On recommended. A film-score feel needs natural vocal register — let the hall reverb sell the scale instead.' }
+};
+
+// ============================================
+// SCENE REGISTRY
+// ============================================
+const SCENES_3D = [
+    { id:'waves', name:'Waves', emoji:'🌊', shader:'fs-waves' },
+    { id:'prism', name:'Prism Void', emoji:'🔷', shader:'fs-prism' },
+    { id:'cubes', name:'Kinetic Cubes', emoji:'🧊', shader:'fs-cubes' },
+    { id:'lattice', name:'Spectral Lattice', emoji:'⛓', shader:'fs-lattice' },
+    { id:'plasma', name:'Plasma Orb', emoji:'🪐', shader:'fs-plasma' }
+];
+const SCENES_2D = [
+    { id:'radial', name:'Radial Bars', emoji:'🎯' },
+    { id:'linear', name:'Linear Spectrum', emoji:'📊' },
+    { id:'particles', name:'Particle Field', emoji:'✨' },
+    { id:'rings', name:'Waveform Rings', emoji:'🎵' },
+    { id:'kaleido', name:'Kaleidoscope', emoji:'🔮' }
+];
+
+// ============================================
+// AUDIO ENGINE
+// ============================================
+class AudioEngine {
+    constructor() {
+        this.ctx = null; this.source = null; this.buffer = null; this.analyser = null;
+        this.nodes = {}; this.startedAt = 0; this.pausedAt = 0;
+        this.isPaused = false; this.isFileMode = false; this.pitchLock = false;
+        this.onEnded = null;
+        this.live = { ...VIBES.neutral.audio };
+    }
+    async initFromFile(file) {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const ab = await file.arrayBuffer();
+        this.buffer = await this.ctx.decodeAudioData(ab);
+        this.isFileMode = true;
+        this._buildGraph();
+        this._playBuffer(0);
+    }
+    async initFromMic() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+        this.source = this.ctx.createMediaStreamSource(stream);
+        this.isFileMode = false;
+        this._buildGraph(true);
+    }
+    _buildGraph(micMode = false) {
+        const ctx = this.ctx;
+        this.nodes.highpass = ctx.createBiquadFilter(); this.nodes.highpass.type='highpass';
+        this.nodes.lowpass = ctx.createBiquadFilter(); this.nodes.lowpass.type='lowpass';
+        this.nodes.bassEQ = ctx.createBiquadFilter(); this.nodes.bassEQ.type='lowshelf'; this.nodes.bassEQ.frequency.value=200;
+        this.nodes.midEQ = ctx.createBiquadFilter(); this.nodes.midEQ.type='peaking'; this.nodes.midEQ.frequency.value=1000; this.nodes.midEQ.Q.value=1;
+        this.nodes.highEQ = ctx.createBiquadFilter(); this.nodes.highEQ.type='highshelf'; this.nodes.highEQ.frequency.value=4000;
+        this.nodes.distortion = ctx.createWaveShaper(); this.nodes.distortion.oversample='4x';
+        this.nodes.compressor = ctx.createDynamicsCompressor();
+        this.nodes.compressor.threshold.value=-24; this.nodes.compressor.ratio.value=1;
+        this.nodes.compressor.attack.value=0.003; this.nodes.compressor.release.value=0.25;
+        this.nodes.reverb = ctx.createConvolver();
+        this.nodes.reverb.buffer = this._makeIR(3.0, 2.5);
+        this.nodes.reverbWet = ctx.createGain(); this.nodes.reverbWet.gain.value=0;
+        this.nodes.reverbDry = ctx.createGain(); this.nodes.reverbDry.gain.value=1;
+        this.nodes.vinylGain = ctx.createGain(); this.nodes.vinylGain.gain.value=0;
+        this._createVinylNoise();
+        this.nodes.master = ctx.createGain();
+        this.nodes.master.gain.value = micMode ? 0 : 0.9;
+        this.analyser = ctx.createAnalyser();
+        this.analyser.fftSize=2048; this.analyser.smoothingTimeConstant=0.75;
+
+        this.nodes.highpass.connect(this.nodes.lowpass);
+        this.nodes.lowpass.connect(this.nodes.bassEQ);
+        this.nodes.bassEQ.connect(this.nodes.midEQ);
+        this.nodes.midEQ.connect(this.nodes.highEQ);
+        this.nodes.highEQ.connect(this.nodes.distortion);
+        this.nodes.distortion.connect(this.nodes.compressor);
+        this.nodes.compressor.connect(this.nodes.reverbDry);
+        this.nodes.compressor.connect(this.nodes.reverb);
+        this.nodes.reverb.connect(this.nodes.reverbWet);
+        this.nodes.reverbDry.connect(this.nodes.master);
+        this.nodes.reverbWet.connect(this.nodes.master);
+        this.nodes.vinylNoise.connect(this.nodes.vinylGain);
+        this.nodes.vinylGain.connect(this.nodes.master);
+        this.nodes.master.connect(this.analyser);
+        this.analyser.connect(ctx.destination);
+
+        if (micMode) this.source.connect(this.nodes.highpass);
+        this._applyLive();
+    }
+    _playBuffer(offset = 0) {
+        if (!this.buffer) return;
+        if (this.source && this.source.stop) { try{this.source.stop();}catch(e){} try{this.source.disconnect();}catch(e){} }
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.buffer;
+        const tempo = this.live.tempo;
+        src.playbackRate.value = tempo;
+        if (this.pitchLock && tempo !== 1.0 && src.detune) {
+            src.detune.value = -1200 * (Math.log(tempo)/Math.log(2));
+        }
+        src.connect(this.nodes.highpass);
+        src.onended = () => { if (!this.isPaused && this.onEnded) this.onEnded(); };
+        src.start(0, offset);
+        this.source = src;
+        this.startedAt = this.ctx.currentTime - offset;
+        this.pausedAt = 0; this.isPaused = false;
+    }
+    pause() {
+        if (!this.isFileMode || !this.source) return;
+        this.pausedAt = this.ctx.currentTime - this.startedAt;
+        try { this.source.stop(); } catch(e){}
+        this.isPaused = true;
+    }
+    resume() { if (this.isFileMode && this.isPaused) this._playBuffer(this.pausedAt); }
+    applyVibe(name) {
+        const v = VIBES[name]; if (!v) return;
+        this.live = { ...v.audio }; this.pitchLock = v.pitchLock;
+        this._applyLive(true);
+    }
+    setParam(k, v) {
+        if (!(k in this.live)) return;
+        const oldT = this.live.tempo;
+        this.live[k] = v;
+        this._applyLive(k === 'tempo' && oldT !== v);
+    }
+    setPitchLock(locked) {
+        this.pitchLock = locked;
+        if (this.isFileMode && this.source && !this.isPaused) {
+            const pos = this.ctx.currentTime - this.startedAt;
+            this._playBuffer(pos);
+        }
+    }
+    _applyLive(restart = false) {
+        if (!this.ctx) return;
+        const a = this.live, t = this.ctx.currentTime, r = 0.15;
+        this.nodes.highpass.frequency.setTargetAtTime(a.highpass, t, r);
+        this.nodes.lowpass.frequency.setTargetAtTime(a.lowpass, t, r);
+        this.nodes.bassEQ.gain.setTargetAtTime(a.bassGain, t, r);
+        this.nodes.midEQ.gain.setTargetAtTime(a.midGain, t, r);
+        this.nodes.highEQ.gain.setTargetAtTime(a.highGain, t, r);
+        this.nodes.reverbWet.gain.setTargetAtTime(a.reverbWet, t, r);
+        this.nodes.reverbDry.gain.setTargetAtTime(1 - a.reverbWet*0.5, t, r);
+        this.nodes.vinylGain.gain.setTargetAtTime(a.vinyl, t, r);
+        this.nodes.distortion.curve = this._distCurve(a.distortion);
+        this.nodes.compressor.threshold.setTargetAtTime(-24 - a.compression*20, t, r);
+        this.nodes.compressor.ratio.setTargetAtTime(1 + a.compression*10, t, r);
+        if (restart && this.isFileMode && this.source && !this.isPaused) {
+            const pos = this.ctx.currentTime - this.startedAt;
+            this.nodes.master.gain.setTargetAtTime(0, t, 0.02);
+            setTimeout(() => {
+                this._playBuffer(pos);
+                this.nodes.master.gain.setTargetAtTime(0.9, this.ctx.currentTime, 0.05);
+            }, 60);
+        }
+    }
+    _makeIR(dur, decay) {
+        const rate = this.ctx.sampleRate, len = rate*dur;
+        const imp = this.ctx.createBuffer(2, len, rate);
+        for (let c = 0; c < 2; c++) {
+            const d = imp.getChannelData(c);
+            for (let i = 0; i < len; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, decay);
+        }
+        return imp;
+    }
+    _distCurve(amt) {
+        const n = 2048, c = new Float32Array(n), k = amt*100;
+        if (amt < 0.001) { for (let i=0;i<n;i++) c[i]=(i*2)/n-1; return c; }
+        for (let i = 0; i < n; i++) {
+            const x = (i*2)/n-1;
+            c[i] = ((3+k)*x*20*Math.PI/180) / (Math.PI + k*Math.abs(x));
+        }
+        return c;
+    }
+    _createVinylNoise() {
+        const size = this.ctx.sampleRate*2;
+        const buf = this.ctx.createBuffer(1, size, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        let b0=0, b1=0, b2=0;
+        for (let i = 0; i < size; i++) {
+            const w = Math.random()*2-1;
+            b0 = 0.99765*b0 + w*0.099046;
+            b1 = 0.96300*b1 + w*0.2965164;
+            b2 = 0.57000*b2 + w*1.0526913;
+            let p = b0+b1+b2+w*0.1848;
+            if (Math.random() < 0.0008) p += (Math.random()-0.5)*4;
+            d[i] = p*0.08;
+        }
+        const n = this.ctx.createBufferSource();
+        n.buffer = buf; n.loop = true; n.start();
+        this.nodes.vinylNoise = n;
+    }
+}
+
+// ============================================
+// REACTIVITY TRACKER - Completely Rewritten for Dynamic Range & Speed Sync
+// ============================================
+class ReactivityTracker {
+    constructor() {
+        this.bass=0; this.mid=0; this.high=0; this.beat=0;
+        this.smoothedEnergy = 0; // Tracks long-term intensity for speed syncing
+        this.bassHistory = new Array(60).fill(0);
+        this.historyIdx = 0;
+        this.lastBeatTime = 0;
+    }
+
+    // EXPONENTIAL CURVE: Quiet stays quiet. Loud gets loud. No more constant full-screen noise.
+    _punch(v) {
+        if (v < 0.1) return 0; // Absolute silence floor
+        const norm = Math.min(1.0, (v - 0.1) / 0.9);
+        // Squaring it creates a beautiful curve: 0.5 becomes 0.25, 1.0 stays 1.0. 
+        return Math.pow(norm, 2.0); 
+    }
+
+    update(analyser) {
+        if (!analyser) { this.beat *= 0.9; return; }
+        const d = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(d);
+        let b=0, m=0, h=0;
+        for (let i=1; i<8; i++) b += d[i];
+        for (let i=8; i<60; i++) m += d[i];
+        for (let i=60; i<200; i++) h += d[i];
+        const rawB = b/(7*255), rawM = m/(52*255), rawH = h/(140*255);
+
+        // Snappy attack on hit, smooth release to 0
+        const atk=0.9, rel=0.08;
+        const smoothB = rawB > this.bass ? this.bass + (rawB-this.bass)*atk : this.bass + (rawB-this.bass)*rel;
+        const smoothM = rawM > this.mid  ? this.mid  + (rawM-this.mid )*atk : this.mid  + (rawM-this.mid )*rel;
+        const smoothH = rawH > this.high ? this.high + (rawH-this.high)*atk : this.high + (rawH-this.high)*rel;
+
+        this.bass = this._punch(smoothB);
+        this.mid  = this._punch(smoothM);
+        this.high = this._punch(smoothH);
+
+        // Energy Sync: Calculate how "busy/loud" the track currently is
+        const currentEnergy = rawB*0.5 + rawM*0.3 + rawH*0.2;
+        // Slowly evolve to map to song tempo/intensity shifts
+        this.smoothedEnergy = this.smoothedEnergy * 0.98 + currentEnergy * 0.02;
+
+        const avg = this.bassHistory.reduce((a,b)=>a+b,0)/this.bassHistory.length;
+        const now = performance.now();
+        // Stricter beat detection: Needs to jump over the average AND be reasonably loud
+        if (rawB > avg*1.25 && rawB > 0.3 && now-this.lastBeatTime > 250) {
+            this.beat = 1.0; this.lastBeatTime = now;
+        } else { 
+            this.beat *= 0.85; 
+        } 
+        
+        this.bassHistory[this.historyIdx] = rawB;
+        this.historyIdx = (this.historyIdx+1) % this.bassHistory.length;
+    }
+}
+
+// ============================================
+// 3D VISUAL (WebGL, swappable shader)
+// ============================================
+class Visual3D {
+    constructor(canvas, sceneId) {
+        this.canvas = canvas;
+        this.gl = canvas.getContext('webgl', { alpha:false, antialias:false });
+        this.elapsed = 0;
+        this.target = { ...VIBES.neutral.visual };
+        this.current = JSON.parse(JSON.stringify(VIBES.neutral.visual));
+        this.sceneId = sceneId;
+        this._compileScene(sceneId);
+        this._resize();
+        this._boundResize = () => this._resize();
+        window.addEventListener('resize', this._boundResize);
+    }
+    _compileScene(sceneId) {
+        const scene = SCENES_3D.find(s => s.id === sceneId) || SCENES_3D[0];
+        const gl = this.gl;
+        if (this.prog) gl.deleteProgram(this.prog);
+        const prog = gl.createProgram();
+        const compile = (type, src) => {
+            const sh = gl.createShader(type);
+            gl.shaderSource(sh, src); gl.compileShader(sh);
+            if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) console.error('shader:', gl.getShaderInfoLog(sh));
+            gl.attachShader(prog, sh);
+        };
+        compile(gl.VERTEX_SHADER, document.getElementById('vs').text);
+        compile(gl.FRAGMENT_SHADER, document.getElementById(scene.shader).text);
+        gl.linkProgram(prog);
+        if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) console.error('link:', gl.getProgramInfoLog(prog));
+        gl.useProgram(prog);
+        this.prog = prog;
+
+        if (!this.vbo) {
+            this.vbo = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        } else {
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
+        }
+        const p = gl.getAttribLocation(prog, 'pos');
+        gl.enableVertexAttribArray(p);
+        gl.vertexAttribPointer(p, 2, gl.FLOAT, false, 0, 0);
+
+        const u = n => gl.getUniformLocation(prog, n);
+        this.uni = {
+            t:u('u_time'), r:u('u_res'),
+            b:u('u_bass'), m:u('u_mid'), h:u('u_high'), bt:u('u_beat'),
+            warm:u('u_warm'), speed:u('u_speed'), react:u('u_react'), dark:u('u_dark'),
+            colA:u('u_colA'), colB:u('u_colB')
+        };
+        this.sceneId = sceneId;
+    }
+    setScene(id) { this._compileScene(id); }
+    _resize() {
+        const dpr = Math.min(window.devicePixelRatio, 2);
+        this.canvas.width = window.innerWidth*dpr;
+        this.canvas.height = window.innerHeight*dpr;
+        this.canvas.style.width = window.innerWidth+'px';
+        this.canvas.style.height = window.innerHeight+'px';
+        this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    }
+    setVibe(v) {
+        this.target = {
+            warm:v.visual.warm, speed:v.visual.speed, react:v.visual.react, dark:v.visual.dark,
+            colA:[...v.visual.colA], colB:[...v.visual.colB]
+        };
+    }
+    render(tracker, dt) {
+        // DYNAMIC SPEED SYNC: Quiet/Slow song = Slow Time. Loud/Fast song = Fast time.
+        const dynamicSpeed = this.current.speed * (0.2 + tracker.smoothedEnergy * 1.8);
+        this.elapsed += dt * dynamicSpeed;
+
+        const lerp = (a,b,t) => a + (b-a)*t, k = 0.04;
+        this.current.warm = lerp(this.current.warm, this.target.warm, k);
+        this.current.speed = lerp(this.current.speed, this.target.speed, k);
+        this.current.react = lerp(this.current.react, this.target.react, k);
+        this.current.dark = lerp(this.current.dark, this.target.dark, k);
+        for (let i=0; i<3; i++) {
+            this.current.colA[i] = lerp(this.current.colA[i], this.target.colA[i], k);
+            this.current.colB[i] = lerp(this.current.colB[i], this.target.colB[i], k);
+        }
+        const gl = this.gl;
+        gl.uniform1f(this.uni.t, this.elapsed);
+        gl.uniform2f(this.uni.r, this.canvas.width, this.canvas.height);
+        gl.uniform1f(this.uni.b, tracker.bass);
+        gl.uniform1f(this.uni.m, tracker.mid);
+        gl.uniform1f(this.uni.h, tracker.high);
+        gl.uniform1f(this.uni.bt, tracker.beat);
+        gl.uniform1f(this.uni.warm, this.current.warm);
+        gl.uniform1f(this.uni.speed, this.current.speed); // Vibe base speed
+        gl.uniform1f(this.uni.react, this.current.react);
+        gl.uniform1f(this.uni.dark, this.current.dark);
+        gl.uniform3fv(this.uni.colA, this.current.colA);
+        gl.uniform3fv(this.uni.colB, this.current.colB);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    destroy() { window.removeEventListener('resize', this._boundResize); }
+}
+
+// ============================================
+// 2D VISUAL — multi-scene
+// ============================================
+class Visual2D {
+    constructor(canvas, sceneId) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.sceneId = sceneId;
+        this.target = { ...VIBES.neutral.visual };
+        this.current = JSON.parse(JSON.stringify(VIBES.neutral.visual));
+        this.elapsed = 0;
+        this.bars = new Array(96).fill(0);
+        this.particles = [];
+        this._initParticles();
+        this._resize();
+        this._boundResize = () => this._resize();
+        window.addEventListener('resize', this._boundResize);
+    }
+    _initParticles() {
+        this.particles = [];
+        for (let i = 0; i < 140; i++) {
+            this.particles.push({
+                x: Math.random(), y: Math.random(),
+                vx: (Math.random()-0.5)*0.0005, vy: (Math.random()-0.5)*0.0005,
+                size: Math.random()*2 + 1,
+                seed: Math.random()
+            });
+        }
+    }
+    setScene(id) { this.sceneId = id; this.bars.fill(0); this._initParticles(); }
+    _resize() {
+        const dpr = Math.min(window.devicePixelRatio, 2);
+        this.canvas.width = window.innerWidth*dpr;
+        this.canvas.height = window.innerHeight*dpr;
+        this.canvas.style.width = window.innerWidth+'px';
+        this.canvas.style.height = window.innerHeight+'px';
+        this.dpr = dpr;
+    }
+    setVibe(v) {
+        this.target = {
+            warm:v.visual.warm, speed:v.visual.speed, react:v.visual.react, dark:v.visual.dark,
+            colA:[...v.visual.colA], colB:[...v.visual.colB]
+        };
+    }
+    _col(rgb, a = 1) {
+        return `rgba(${Math.round(rgb[0]*255)},${Math.round(rgb[1]*255)},${Math.round(rgb[2]*255)},${a})`;
+    }
+    _warmCol(rgb) {
+        const warmR = Math.min(1, rgb[0] + this.current.warm*0.1);
+        const warmB = Math.max(0, rgb[2] - this.current.warm*0.05);
+        return [warmR, rgb[1], warmB];
+    }
+    render(tracker, dt, analyser) {
+        // DYNAMIC SPEED SYNC for 2D elements
+        const dynamicSpeed = this.current.speed * (0.2 + tracker.smoothedEnergy * 1.8);
+        this.elapsed += dt * dynamicSpeed;
+
+        const lerp = (a,b,t) => a + (b-a)*t, k = 0.04;
+        this.current.warm = lerp(this.current.warm, this.target.warm, k);
+        this.current.speed = lerp(this.current.speed, this.target.speed, k);
+        this.current.react = lerp(this.current.react, this.target.react, k);
+        this.current.dark = lerp(this.current.dark, this.target.dark, k);
+        for (let i = 0; i < 3; i++) {
+            this.current.colA[i] = lerp(this.current.colA[i], this.target.colA[i], k);
+            this.current.colB[i] = lerp(this.current.colB[i], this.target.colB[i], k);
+        }
+
+        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
+        const fadeAlpha = 0.12 + this.current.dark*0.1;
+        ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+        ctx.fillRect(0, 0, W, H);
+
+        if (!analyser) return;
+
+        const freqData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(freqData);
+        const nBars = this.bars.length;
+        for (let i = 0; i < nBars; i++) {
+            const bs = Math.floor(Math.pow(i/nBars, 1.8)*300);
+            const be = Math.floor(Math.pow((i+1)/nBars, 1.8)*300);
+            let v = 0;
+            for (let j = bs; j <= be && j < freqData.length; j++) v = Math.max(v, freqData[j]);
+            
+            v = v/255;
+            // Exact same exponential logic so bars stay clean and punchy
+            if (v < 0.1) v = 0;
+            else v = Math.pow((v - 0.1) / 0.9, 2.0); 
+
+            v *= this.current.react;
+            this.bars[i] = v > this.bars[i] ? v : this.bars[i]*0.88 + v*0.12;
+        }
+
+        switch (this.sceneId) {
+            case 'radial': this._renderRadial(ctx, W, H, tracker, analyser); break;
+            case 'linear': this._renderLinear(ctx, W, H, tracker); break;
+            case 'particles': this._renderParticles(ctx, W, H, tracker, dt, dynamicSpeed); break;
+            case 'rings': this._renderRings(ctx, W, H, tracker, analyser); break;
+            case 'kaleido': this._renderKaleido(ctx, W, H, tracker); break;
+            default: this._renderRadial(ctx, W, H, tracker, analyser);
+        }
+    }
+
+    _renderRadial(ctx, W, H, tracker, analyser) {
+        const cx = W/2, cy = H/2;
+        // Base R shrinks down tightly during silence
+        const baseR = Math.min(W, H)*0.1 * (1 + tracker.smoothedEnergy*0.5 + tracker.beat*0.1);
+        const maxReach = Math.min(W, H)*0.35; // Doesn't extend past the screen
+        const nBars = this.bars.length;
+        const lerp = (a,b,t) => a + (b-a)*t;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        for (let i = 0; i < nBars; i++) {
+            const angle = (i/nBars)*Math.PI*2 - Math.PI/2;
+            const len = this.bars[i]*maxReach;
+            const blend = i/nBars;
+            const c = this._warmCol([
+                lerp(this.current.colA[0], this.current.colB[0], blend),
+                lerp(this.current.colA[1], this.current.colB[1], blend),
+                lerp(this.current.colA[2], this.current.colB[2], blend)
+            ]);
+            const alpha = 0.2 + this.bars[i]*1.2;
+            ctx.strokeStyle = this._col(c, Math.min(1, alpha));
+            ctx.lineWidth = (2 + this.bars[i] * 6) * this.dpr;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(angle)*baseR, Math.sin(angle)*baseR);
+            ctx.lineTo(Math.cos(angle)*(baseR+len), Math.sin(angle)*(baseR+len));
+            ctx.stroke();
+        }
+        ctx.restore();
+
+        const ringR = baseR * (0.9 + tracker.bass*0.6 + tracker.beat*0.3);
+        const grad = ctx.createRadialGradient(cx, cy, ringR*0.3, cx, cy, ringR);
+        grad.addColorStop(0, this._col(this.current.colA, 0.1 + tracker.beat*0.5));
+        grad.addColorStop(0.6, this._col(this.current.colB, 0.15 + tracker.bass*0.4));
+        grad.addColorStop(1, this._col(this.current.colB, 0));
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(cx, cy, ringR, 0, Math.PI*2); ctx.fill();
+
+        const timeData = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(timeData);
+        ctx.strokeStyle = this._col(this.current.colA, 0.7 + tracker.high*0.4);
+        ctx.lineWidth = (1.5 + tracker.high*3) * this.dpr;
+        ctx.beginPath();
+        const step = Math.max(1, Math.floor(timeData.length/200));
+        for (let i = 0; i < timeData.length; i += step) {
+            const v = (timeData[i]-128)/128;
+            const angle = (i/timeData.length)*Math.PI*2;
+            const r = baseR*0.65 + v*baseR*0.7*this.current.react;
+            const x = cx + Math.cos(angle)*r, y = cy + Math.sin(angle)*r;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath(); ctx.stroke();
+    }
+
+    _renderLinear(ctx, W, H, tracker) {
+        const nBars = this.bars.length;
+        const barW = W / nBars;
+        const maxH = H * 0.4; // Max out at 40% height so it stays clean
+        const cy = H / 2;
+        const lerp = (a,b,t) => a + (b-a)*t;
+
+        for (let i = 0; i < nBars; i++) {
+            const h = this.bars[i] * maxH * (1.0 + tracker.beat*0.2);
+            const blend = i / nBars;
+            const c = this._warmCol([
+                lerp(this.current.colA[0], this.current.colB[0], blend),
+                lerp(this.current.colA[1], this.current.colB[1], blend),
+                lerp(this.current.colA[2], this.current.colB[2], blend)
+            ]);
+            const intensity = 0.3 + this.bars[i]*1.2;
+            const grad = ctx.createLinearGradient(0, cy-h, 0, cy+h);
+            grad.addColorStop(0, this._col(c, 0.1 * intensity));
+            grad.addColorStop(0.5, this._col(c, Math.min(1, intensity)));
+            grad.addColorStop(1, this._col(c, 0.1 * intensity));
+            ctx.fillStyle = grad;
+            ctx.fillRect(i*barW + barW*0.1, cy-h, barW*0.8, h*2);
+        }
+
+        ctx.strokeStyle = this._col(this.current.colA, 0.15 + tracker.beat*0.8 + tracker.bass*0.4);
+        ctx.lineWidth = (0.5 + tracker.beat*10 + tracker.bass*6) * this.dpr;
+        ctx.beginPath();
+        ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+
+        if (tracker.beat > 0.2) {
+            const glowGrad = ctx.createLinearGradient(0, cy - H*0.1*tracker.beat, 0, cy + H*0.1*tracker.beat);
+            glowGrad.addColorStop(0, this._col(this.current.colB, 0));
+            glowGrad.addColorStop(0.5, this._col(this.current.colB, 0.35 * tracker.beat));
+            glowGrad.addColorStop(1, this._col(this.current.colB, 0));
+            ctx.fillStyle = glowGrad;
+            ctx.fillRect(0, cy - H*0.1*tracker.beat, W, H*0.2*tracker.beat);
+        }
+    }
+
+    _renderParticles(ctx, W, H, tracker, dt, dynamicSpeed) {
+        const lerp = (a,b,t) => a + (b-a)*t;
+        const push = tracker.bass * 0.008 * this.current.react + tracker.beat * 0.02;
+
+        for (const p of this.particles) {
+            const dx = p.x - 0.5, dy = p.y - 0.5;
+            const dist = Math.sqrt(dx*dx + dy*dy) + 0.0001;
+
+            p.vx += (dx/dist) * push * 0.8;
+            p.vy += (dy/dist) * push * 0.8;
+            p.vx -= dx * 0.015;
+            p.vy -= dy * 0.015;
+            p.vx *= 0.85;
+            p.vy *= 0.85;
+
+            // Use the globally synced audio speed for motion
+            p.x += p.vx * dynamicSpeed;
+            p.y += p.vy * dynamicSpeed;
+
+            if (p.x < -0.05) { p.x = 1.05; p.vx = 0; }
+            else if (p.x > 1.05) { p.x = -0.05; p.vx = 0; }
+            if (p.y < -0.05) { p.y = 1.05; p.vy = 0; }
+            else if (p.y > 1.05) { p.y = -0.05; p.vy = 0; }
+        }
+
+        const connR = 0.1 + tracker.high * 0.12;
+        ctx.lineWidth = (0.5 + tracker.high*3) * this.dpr;
+        for (let i = 0; i < this.particles.length; i++) {
+            const a = this.particles[i];
+            for (let j = i+1; j < this.particles.length; j++) {
+                const b = this.particles[j];
+                const dx = a.x-b.x, dy = a.y-b.y;
+                const dd = Math.sqrt(dx*dx + dy*dy);
+                if (dd < connR) {
+                    const alpha = (1 - dd/connR) * (0.15 + tracker.high*0.8 + tracker.beat*0.4);
+                    const c = this._warmCol([
+                        lerp(this.current.colA[0], this.current.colB[0], a.seed),
+                        lerp(this.current.colA[1], this.current.colB[1], a.seed),
+                        lerp(this.current.colA[2], this.current.colB[2], a.seed)
+                    ]);
+                    ctx.strokeStyle = this._col(c, alpha);
+                    ctx.beginPath();
+                    ctx.moveTo(a.x*W, a.y*H); ctx.lineTo(b.x*W, b.y*H); ctx.stroke();
+                }
+            }
+        }
+
+        for (const p of this.particles) {
+            const c = this._warmCol([
+                lerp(this.current.colA[0], this.current.colB[0], p.seed),
+                lerp(this.current.colA[1], this.current.colB[1], p.seed),
+                lerp(this.current.colA[2], this.current.colB[2], p.seed)
+            ]);
+            // Kept sizes tight and localized
+            const size = p.size * this.dpr * (0.8 + tracker.bass*0.8 + tracker.beat*0.5);
+            if (tracker.beat > 0.3) {
+                ctx.fillStyle = this._col(c, 0.25 * tracker.beat);
+                ctx.beginPath();
+                ctx.arc(p.x*W, p.y*H, size*4, 0, Math.PI*2);
+                ctx.fill();
+            }
+            ctx.fillStyle = this._col(c, 0.8 + tracker.bass*0.2);
+            ctx.beginPath();
+            ctx.arc(p.x*W, p.y*H, size, 0, Math.PI*2);
+            ctx.fill();
+        }
+    }
+
+    _renderRings(ctx, W, H, tracker, analyser) {
+        const cx = W/2, cy = H/2;
+        const timeData = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(timeData);
+        const nRings = 5;
+        const lerp = (a,b,t) => a + (b-a)*t;
+        const maxR = Math.min(W, H) * 0.42;
+
+        for (let r = 0; r < nRings; r++) {
+            const baseR = maxR * (0.18 + r*0.16) * (1 + tracker.bass*0.25);
+            const blend = r / nRings;
+            const c = this._warmCol([
+                lerp(this.current.colA[0], this.current.colB[0], blend),
+                lerp(this.current.colA[1], this.current.colB[1], blend),
+                lerp(this.current.colA[2], this.current.colB[2], blend)
+            ]);
+            const activity = 0.3 + tracker.bass*0.5 + tracker.mid*0.4 + tracker.beat*0.5;
+            ctx.strokeStyle = this._col(c, Math.min(1, activity));
+            ctx.lineWidth = (1.5 + tracker.beat*7 + tracker.bass*3) * this.dpr;
+            ctx.beginPath();
+            const step = Math.max(1, Math.floor(timeData.length/180));
+            const offset = (r * timeData.length / nRings) | 0;
+            for (let i = 0; i < timeData.length; i += step) {
+                const idx = (i + offset) % timeData.length;
+                const v = (timeData[idx]-128)/128;
+                const angle = (i/timeData.length)*Math.PI*2 + this.elapsed*0.1*(r+1);
+                // Lower displacement so it doesn't leave the screen bounds
+                const displacement = 60 * this.dpr * this.current.react * (1 + r*0.2) * (1 + tracker.bass*0.5);
+                const rr = baseR + v * displacement;
+                const x = cx + Math.cos(angle)*rr, y = cy + Math.sin(angle)*rr;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            }
+            ctx.closePath(); ctx.stroke();
+        }
+    }
+
+    _renderKaleido(ctx, W, H, tracker) {
+        const cx = W/2, cy = H/2;
+        const segments = 8;
+        const nBars = 32;
+        const maxReach = Math.min(W, H) * 0.5;
+        const lerp = (a,b,t) => a + (b-a)*t;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        // Links rotation speed to energy so it's smooth
+        ctx.rotate(this.elapsed * 0.2 + tracker.beat * 0.05);
+
+        for (let s = 0; s < segments; s++) {
+            ctx.save();
+            ctx.rotate((Math.PI*2/segments) * s);
+            if (s % 2 === 1) ctx.scale(1, -1);
+
+            for (let i = 0; i < nBars; i++) {
+                const barIdx = Math.floor(i * this.bars.length / nBars);
+                const v = this.bars[barIdx];
+                const angle = (i / nBars) * (Math.PI*2/segments);
+                const len = v * maxReach;
+                const blend = i / nBars;
+                const c = this._warmCol([
+                    lerp(this.current.colA[0], this.current.colB[0], blend),
+                    lerp(this.current.colA[1], this.current.colB[1], blend),
+                    lerp(this.current.colA[2], this.current.colB[2], blend)
+                ]);
+                ctx.strokeStyle = this._col(c, 0.3 + v*0.9);
+                ctx.lineWidth = (1.5 + v*4) * this.dpr;
+                ctx.beginPath();
+                const r1 = Math.min(W,H)*0.03;
+                ctx.moveTo(Math.cos(angle)*r1, Math.sin(angle)*r1);
+                ctx.lineTo(Math.cos(angle)*(r1+len), Math.sin(angle)*(r1+len));
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        const pulseR = Math.min(W,H)*0.03 * (0.4 + tracker.bass*2.0 + tracker.beat*1.0);
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, pulseR*3);
+        grad.addColorStop(0, this._col(this.current.colA, 0.4 + tracker.beat*0.6));
+        grad.addColorStop(0.5, this._col(this.current.colB, 0.25 + tracker.bass*0.4));
+        grad.addColorStop(1, this._col(this.current.colB, 0));
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(0, 0, pulseR*3, 0, Math.PI*2); ctx.fill();
+
+        ctx.restore();
+    }
+
+    destroy() { window.removeEventListener('resize', this._boundResize); }
+}
+
+// ============================================
+// APP
+// ============================================
+class Synesthesia {
+    constructor() {
+        this.audio = new AudioEngine();
+        this.tracker = new ReactivityTracker();
+        this.visualMode = '3d';
+        this.sceneId = { '3d': 'waves', '2d': 'radial' };
+        this.gl3d = document.getElementById('gl');
+        this.canvas2d = document.getElementById('c2d');
+        this.visual = new Visual3D(this.gl3d, this.sceneId['3d']);
+        this.currentVibe = 'neutral';
+        this.lastFrame = performance.now();
+        this._buildVibeList();
+        this._buildSceneDropdown();
+        this._bindSliders();
+        this._bindEvents();
+        this._loop = this._loop.bind(this);
+        requestAnimationFrame(this._loop);
+    }
+
+    _buildVibeList() {
+        const list = document.getElementById('vibe-list');
+        list.innerHTML = '';
+        Object.entries(VIBES).forEach(([key, v]) => {
+            const el = document.createElement('div');
+            el.className = 'vibe-item' + (key === this.currentVibe ? ' active' : '');
+            el.dataset.vibe = key;
+            el.innerHTML = `<div class="emoji">${v.emoji}</div><div class="meta"><div class="label">${v.label}</div><div class="sub">${v.sub}</div></div>`;
+            el.onclick = () => this.setVibe(key);
+            list.appendChild(el);
+        });
+    }
+
+    _buildSceneDropdown() {
+        const dropdown = document.getElementById('scene-dropdown');
+        dropdown.innerHTML = '';
+        const scenes = this.visualMode === '3d' ? SCENES_3D : SCENES_2D;
+        const currentId = this.sceneId[this.visualMode];
+        scenes.forEach(s => {
+            const el = document.createElement('div');
+            el.className = 'scene-option' + (s.id === currentId ? ' active' : '');
+            el.dataset.sceneId = s.id;
+            el.innerHTML = `<span class="emoji">${s.emoji}</span><span>${s.name}</span>`;
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.setScene(s.id);
+                this.toggleSceneDropdown(false);
+            });
+            dropdown.appendChild(el);
+        });
+        this._updateSceneLabel();
+    }
+
+    _updateSceneLabel() {
+        const scenes = this.visualMode === '3d' ? SCENES_3D : SCENES_2D;
+        const currentId = this.sceneId[this.visualMode];
+        const current = scenes.find(s => s.id === currentId) || scenes[0];
+        document.getElementById('scene-label').innerText = current.name;
+        document.querySelectorAll('.scene-option').forEach(el => {
+            el.classList.toggle('active', el.dataset.sceneId === currentId);
+        });
+    }
+
+    toggleSceneDropdown(force) {
+        const d = document.getElementById('scene-dropdown');
+        if (force === false) d.classList.remove('open');
+        else d.classList.toggle('open');
+    }
+
+    setScene(id) {
+        this.sceneId[this.visualMode] = id;
+        this.visual.setScene(id);
+        this._updateSceneLabel();
+    }
+
+    _bindSliders() {
+        const pairs = [
+            ['s-tempo','v-tempo','tempo', v => `${Math.round(v*100)}%`],
+            ['s-highpass','v-highpass','highpass', v => v >= 1000 ? `${(v/1000).toFixed(1)} kHz` : `${v} Hz`],
+            ['s-lowpass','v-lowpass','lowpass', v => v >= 1000 ? `${(v/1000).toFixed(1)} kHz` : `${v} Hz`],
+            ['s-bass','v-bass','bassGain', v => `${v > 0 ? '+' : ''}${v} dB`],
+            ['s-mid','v-mid','midGain', v => `${v > 0 ? '+' : ''}${v} dB`],
+            ['s-high','v-high','highGain', v => `${v > 0 ? '+' : ''}${v} dB`],
+            ['s-reverb','v-reverb','reverbWet', v => `${Math.round(v*100)}%`],
+            ['s-dist','v-dist','distortion', v => `${Math.round(v*100)}%`],
+            ['s-vinyl','v-vinyl','vinyl', v => `${Math.round(v*100)}%`],
+            ['s-comp','v-comp','compression', v => `${Math.round(v*100)}%`]
+        ];
+        this.sliderMap = {};
+        pairs.forEach(([si, li, k, fmt]) => {
+            const s = document.getElementById(si), l = document.getElementById(li);
+            this.sliderMap[k] = { slider: s, label: l, fmt };
+            s.addEventListener('input', e => {
+                const v = parseFloat(e.target.value);
+                l.innerText = fmt(v);
+                this.audio.setParam(k, v);
+            });
+        });
+    }
+
+    _syncSliders() {
+        Object.entries(this.audio.live).forEach(([k, v]) => {
+            const m = this.sliderMap[k];
+            if (m) { m.slider.value = v; m.label.innerText = m.fmt(v); }
+        });
+    }
+
+    _bindEvents() {
+        document.getElementById('fileInput').onchange = e => { if (e.target.files[0]) this.initAudio('file'); };
+        document.addEventListener('mousedown', e => {
+            const picker = e.target.closest('.scene-picker');
+            if (!picker) this.toggleSceneDropdown(false);
+        });
+    }
+
+    async initAudio(type) {
+        const loader = document.getElementById('loader');
+        try {
+            if (type === 'mic') {
+                loader.classList.add('active');
+                document.getElementById('loader-text').innerText = 'Connecting microphone';
+                await this.audio.initFromMic();
+                document.getElementById('track-display').innerText = 'LIVE MIC';
+            } else {
+                const file = document.getElementById('fileInput').files[0];
+                if (!file) return;
+                loader.classList.add('active');
+                document.getElementById('loader-text').innerText = 'Decoding audio';
+                await this.audio.initFromFile(file);
+                document.getElementById('track-display').innerText = file.name.slice(0, 14).toUpperCase();
+                this.audio.onEnded = () => { document.getElementById('pause-btn').innerText = '▶'; };
+            }
+            loader.classList.remove('active');
+            document.getElementById('landing').style.opacity = '0';
+            setTimeout(() => document.getElementById('landing').style.display = 'none', 1500);
+            setTimeout(() => document.getElementById('controller').classList.add('expanded'), 1600);
+            this._syncSliders();
+        } catch (err) {
+            loader.classList.remove('active');
+            alert('Audio init failed: ' + err.message);
+        }
+    }
+
+    setVibe(key) {
+        this.currentVibe = key;
+        this.audio.applyVibe(key);
+        this.visual.setVibe(VIBES[key]);
+        document.querySelectorAll('.vibe-item').forEach(el => el.classList.toggle('active', el.dataset.vibe === key));
+        const v = VIBES[key];
+        document.getElementById('vibe-display').innerText = `${v.emoji} ${v.label.toUpperCase()}`;
+        document.getElementById('pitch-toggle').classList.toggle('on', v.pitchLock);
+        document.getElementById('pitch-recommend').innerText = `◆ Recommended: ${v.pitchLock ? 'preserve pitch' : 'let pitch drop/rise'}`;
+        document.getElementById('pitch-reason').innerText = v.pitchReason;
+        this._syncSliders();
+    }
+
+    resetToVibe() { this.audio.applyVibe(this.currentVibe); this._syncSliders(); }
+    togglePitchLock() {
+        const locked = !this.audio.pitchLock;
+        this.audio.setPitchLock(locked);
+        document.getElementById('pitch-toggle').classList.toggle('on', locked);
+    }
+
+    setVisualMode(mode) {
+        if (mode === this.visualMode) return;
+        this.visualMode = mode;
+        document.getElementById('mode-2d').classList.toggle('active', mode === '2d');
+        document.getElementById('mode-3d').classList.toggle('active', mode === '3d');
+        this.visual.destroy();
+        if (mode === '3d') {
+            this.gl3d.style.display = 'block';
+            this.canvas2d.style.display = 'none';
+            this.visual = new Visual3D(this.gl3d, this.sceneId['3d']);
+        } else {
+            this.gl3d.style.display = 'none';
+            this.canvas2d.style.display = 'block';
+            this.visual = new Visual2D(this.canvas2d, this.sceneId['2d']);
+        }
+        this.visual.setVibe(VIBES[this.currentVibe]);
+        this._buildSceneDropdown();
+    }
+
+    toggleUI() { document.getElementById('controller').classList.toggle('expanded'); }
+    toggleVibePanel() { document.getElementById('vibe-panel').classList.toggle('open'); }
+    toggleManualPanel() { document.getElementById('manual-panel').classList.toggle('open'); }
+
+    togglePlayback() {
+        if (!this.audio.isFileMode) return;
+        if (this.audio.isPaused) {
+            this.audio.resume();
+            document.getElementById('pause-btn').innerText = '❚❚';
+        } else {
+            this.audio.pause();
+            document.getElementById('pause-btn').innerText = '▶';
+        }
+    }
+
+    _loop() {
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - this.lastFrame)*0.001);
+        this.lastFrame = now;
+        this.tracker.update(this.audio.analyser);
+        if (this.visualMode === '3d') {
+            this.visual.render(this.tracker, dt);
+        } else {
+            this.visual.render(this.tracker, dt, this.audio.analyser);
+        }
+        requestAnimationFrame(this._loop);
+    }
+}
+
+const app = new Synesthesia();
+</script>
+</body>
+</html>

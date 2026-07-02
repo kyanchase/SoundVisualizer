@@ -7,8 +7,31 @@ import { Controls } from './ui/Controls.jsx';
 import { DebugPanel } from './ui/DebugPanel.jsx';
 import { ManualPanel } from './ui/ManualPanel.jsx';
 import { VibePanel } from './ui/VibePanel.jsx';
+import { GenerativePanel } from './ui/GenerativePanel.jsx';
+import { createDefaultEvolutionControls } from './generative/EvolutionEngine.js';
 import Loader from './ui/Loader.jsx';
 import Card from './ui/Card.jsx';
+
+const getViewportSize = () => {
+  const viewport = window.visualViewport;
+  return {
+    width: Math.max(1, Math.round(viewport?.width ?? window.innerWidth)),
+    height: Math.max(1, Math.round(viewport?.height ?? window.innerHeight)),
+  };
+};
+
+const sizeCanvasToViewport = (canvas) => {
+  if (!canvas) return;
+  const { width, height } = getViewportSize();
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  canvas.width = Math.max(1, Math.round(width * dpr));
+  canvas.height = Math.max(1, Math.round(height * dpr));
+};
+
+const UI_STATE_INTERVAL_MS = 125;
 
 export default function App() {
   const canvasRef   = useRef(null);
@@ -33,16 +56,25 @@ export default function App() {
   const [pitchLock, setPitchLock] = useState(VIBES.neutral.pitchLock);
   const [manualOpen, setManualOpen] = useState(false);
   const [vibeOpen, setVibeOpen] = useState(false);
+  const [generativeOpen, setGenerativeOpen] = useState(false);
+  const [evolutionControls, setEvolutionControls] = useState(createDefaultEvolutionControls);
 
   const fpsRef = useRef({ frames: 0, last: 0 });
+  const uiStateRef = useRef({ last: 0 });
+
+  useEffect(() => {
+    rendererRef.current?.setLandingActive(landed);
+  }, [landed]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const canvas2d = canvas2dRef.current;
-    canvas.width  = canvas.clientWidth  * window.devicePixelRatio;
-    canvas.height = canvas.clientHeight * window.devicePixelRatio;
-    canvas2d.width  = canvas2d.clientWidth  * window.devicePixelRatio;
-    canvas2d.height = canvas2d.clientHeight * window.devicePixelRatio;
+    const syncCanvasSizes = () => {
+      sizeCanvasToViewport(canvas);
+      sizeCanvasToViewport(canvas2d);
+    };
+
+    syncCanvasSizes();
 
     const renderer = new Renderer(canvas, canvas2d);
     rendererRef.current = renderer;
@@ -65,8 +97,11 @@ export default function App() {
         if (rendererRef.current && audioRef.current) {
           const state = audioRef.current.getAudioState();
           rendererRef.current.setAudioState(state);
-          setAudioState(state);
-          setRendInfo(rendererRef.current.getDebugInfo());
+          if (now - uiStateRef.current.last >= UI_STATE_INTERVAL_MS) {
+            uiStateRef.current.last = now;
+            setAudioState({ ...state, mood: { ...state.mood } });
+            setRendInfo(rendererRef.current.getDebugInfo());
+          }
         }
         rafRef.current = requestAnimationFrame(tick);
       };
@@ -75,16 +110,17 @@ export default function App() {
     });
 
     const onResize = () => {
-      canvas.width  = canvas.clientWidth  * window.devicePixelRatio;
-      canvas.height = canvas.clientHeight * window.devicePixelRatio;
-      canvas2d.width  = canvas2d.clientWidth  * window.devicePixelRatio;
-      canvas2d.height = canvas2d.clientHeight * window.devicePixelRatio;
+      syncCanvasSizes();
       renderer.onResize();
     };
     window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('scroll', onResize);
 
     return () => {
       window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('scroll', onResize);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       audioRef.current?.destroy();
       renderer.destroy();
@@ -163,6 +199,31 @@ export default function App() {
     audioRef.current?.setPitchLock(locked);
   }, []);
 
+  const handleEvolutionChange = useCallback((key, value) => {
+    setEvolutionControls((controls) => {
+      const next = { ...controls, [key]: value };
+      rendererRef.current?.setEvolutionControls(next);
+      return next;
+    });
+  }, []);
+
+  const handleModeWeightChange = useCallback((name, value) => {
+    setEvolutionControls((controls) => {
+      const next = {
+        ...controls,
+        modeWeights: { ...controls.modeWeights, [name]: value },
+      };
+      rendererRef.current?.setEvolutionControls(next);
+      return next;
+    });
+  }, []);
+
+  const handleEvolutionReset = useCallback(() => {
+    const next = createDefaultEvolutionControls();
+    setEvolutionControls(next);
+    rendererRef.current?.setEvolutionControls(next);
+  }, []);
+
   const handleResetToVibe = useCallback(() => {
     handleVibeSelect(currentVibe);
   }, [currentVibe, handleVibeSelect]);
@@ -177,20 +238,11 @@ export default function App() {
     <>
       <canvas
         ref={canvasRef}
-        style={{
-          position: 'fixed', inset: 0,
-          width: '100vw', height: '100vh',
-          display: 'block', zIndex: 1,
-        }}
+        className="visual-canvas visual-canvas-webgl"
       />
       <canvas
         ref={canvas2dRef}
-        style={{
-          position: 'fixed', inset: 0,
-          width: '100vw', height: '100vh',
-          display: 'block', zIndex: 2,
-          pointerEvents: 'none',
-        }}
+        className="visual-canvas visual-canvas-2d"
       />
 
       {landed && (
@@ -229,6 +281,7 @@ export default function App() {
             onModeSelect={handleModeSelect}
             onToggleManualPanel={() => setManualOpen((open) => !open)}
             onToggleVibePanel={() => setVibeOpen((open) => !open)}
+            onToggleGenerativePanel={() => setGenerativeOpen((open) => !open)}
             onSceneSelect={handleModeSelect}
             currentSceneName={currentMode}
             sceneNames={scenes}
@@ -248,6 +301,14 @@ export default function App() {
             onClose={() => setVibeOpen(false)}
             onSelect={handleVibeSelect}
             onTogglePitchLock={handlePitchLock}
+          />
+          <GenerativePanel
+            open={generativeOpen}
+            controls={evolutionControls}
+            onClose={() => setGenerativeOpen(false)}
+            onChange={handleEvolutionChange}
+            onModeWeightChange={handleModeWeightChange}
+            onReset={handleEvolutionReset}
           />
         </>
       )}

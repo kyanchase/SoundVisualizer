@@ -39,13 +39,10 @@ export class MoodAnalyzer {
     const chaos = Math.min(1, centroidDelta * 30);
     this._prevCentroid = centroid;
 
-    this.mood = {
-      energy:     energy,
-      tension:    tension,
-      smoothness: smoothness,
-      chaos:      chaos,
-    };
-
+    this.mood.energy = energy;
+    this.mood.tension = tension;
+    this.mood.smoothness = smoothness;
+    this.mood.chaos = chaos;
     return this.mood;
   }
 }

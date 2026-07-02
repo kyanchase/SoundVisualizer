@@ -8,6 +8,9 @@ import { ChladniPatterns } from '../simulation/ChladniPatterns.js';
 import { ParticleSystem } from '../simulation/ParticleSystem.js';
 import { FluidFeedback } from '../simulation/FluidFeedback.js';
 import { VISUAL_MODES } from '../visuals/index.js';
+import { EvolutionEngine } from '../generative/EvolutionEngine.js';
+import { ShaderModuleSystem } from '../generative/ShaderModuleSystem.js';
+import { GENE_KEYS } from '../generative/VisualGenome.js';
 
 // Passthrough vertex shader for full-screen quad
 const QUAD_VERT = `attribute vec2 pos; void main() { gl_Position = vec4(pos, 0.0, 1.0); }`;
@@ -44,6 +47,10 @@ export class Renderer {
     this.sm = new ShaderManager(this.gl);
     this.camera = new CameraController();
     this.feedback = new FluidFeedback(0.92);
+    this.evolution = new EvolutionEngine();
+    this.shaderModules = new ShaderModuleSystem();
+    this._evolutionState = null;
+    this._genomeUniform = new Float32Array(GENE_KEYS.length);
 
     this._elapsedTime = 0;
     this._lastTime = 0;
@@ -52,13 +59,24 @@ export class Renderer {
     this._transition = 0.0;
     this._modeNames = Object.keys(VISUAL_MODES);
     this._transitionInterval = null;
+    this._flushFeedbackFrames = 0;
+    this._landingActive = true;
 
     this._standingWave = new StandingWaveSim(128);
     this._ripple = new RippleSimulation(128);
     this._chladni = new ChladniPatterns(this._standingWave);
     this._particles = new ParticleSystem();
+    this._silentRaw = new Uint8Array(1024);
+    this._silentTimeRaw = new Uint8Array(2048).fill(128);
+    this._silentAudioState = {
+      bass:0, lowMid:0, mid:0, highMid:0, treble:0, air:0,
+      beat:0, bpm:0, dropIntensity:0,
+      mood:{ energy:0, tension:0, smoothness:1, chaos:0 },
+      raw: this._silentRaw, timeRaw: this._silentTimeRaw, active:false,
+    };
     this._bars2d = new Array(96).fill(0);
     this._particles2d = [];
+    this._kaleidoShards = [];
 
     this._quadBuf = null;
     this._particleBuf = null;
@@ -70,6 +88,7 @@ export class Renderer {
     this._onModeChange = null;
     this._animFrame = null;
     this._init2dParticles();
+    this._initKaleidoShards();
   }
 
   async init() {
@@ -80,7 +99,7 @@ export class Renderer {
       fetch('/shaders/particles.frag').then(r => r.text()),
     ]);
 
-    this.sm.createProgram('cymatics', vertSrc, cymatFrag);
+    this.sm.createProgram('cymatics', vertSrc, this.shaderModules.compose(cymatFrag));
     this.sm.createProgram('feedback', QUAD_VERT, FEEDBACK_FRAG);
     this.sm.createProgram('particles', PARTICLE_VERT, particlesFrag);
 
@@ -89,9 +108,6 @@ export class Renderer {
     this._setupQuad();
     this._setupParticleBuffer();
     this._resize();
-
-    // Auto-transition between modes every 12 seconds
-    this._transitionInterval = setInterval(() => this._triggerTransition(), 12000);
 
     this._lastTime = performance.now();
     this._loop();
@@ -123,15 +139,19 @@ export class Renderer {
       this._prevFB  = new Framebuffer(gl, w, h);
     }
 
-    if (this.canvas2d) {
-      this.canvas2d.width = this.canvas2d.clientWidth * window.devicePixelRatio;
-      this.canvas2d.height = this.canvas2d.clientHeight * window.devicePixelRatio;
-    }
+    // Canvas backing sizes are managed by App so WebGL and 2D use the same capped DPR.
   }
 
   onResize() {
-    this.canvas.width  = this.canvas.clientWidth  * window.devicePixelRatio;
-    this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const rect = this.canvas.getBoundingClientRect();
+    this.canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    this.canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    if (this.canvas2d) {
+      const rect2d = this.canvas2d.getBoundingClientRect();
+      this.canvas2d.width = Math.max(1, Math.round(rect2d.width * dpr));
+      this.canvas2d.height = Math.max(1, Math.round(rect2d.height * dpr));
+    }
     this._resize();
   }
 
@@ -145,6 +165,7 @@ export class Renderer {
     this._transition = 0.0;
     const mode = VISUAL_MODES[this._modeNames[idx]];
     if (typeof mode?.feedbackBase === 'number') this.feedback.baseAlpha = mode.feedbackBase;
+    this._flushFeedbackFrames = 2;
     if (this._onModeChange) this._onModeChange(this._modeNames[idx]);
   }
 
@@ -159,18 +180,21 @@ export class Renderer {
 
   _tick() {
     const gl = this.gl;
-    const audioState = this._audioState || {
-      bass:0, lowMid:0, mid:0, highMid:0, treble:0, air:0,
-      beat:0, bpm:0, dropIntensity:0,
-      mood:{ energy:0, tension:0, smoothness:1, chaos:0 },
-      raw: new Uint8Array(1024), active:false,
-    };
+    const audioState = this._audioState || this._silentAudioState;
+
+    if (this._landingActive) {
+      this._clearWebGL();
+      this._clear2d();
+      return;
+    }
 
     // Update simulations
     const currModeName = this._modeNames[this._currModeIdx];
     const nextModeName = this._modeNames[this._nextModeIdx];
     const currMode = VISUAL_MODES[currModeName];
     const nextMode = VISUAL_MODES[nextModeName];
+    const isEvolving = Boolean(currMode?.evolving);
+    if (isEvolving) this._evolutionState = this.evolution.update(audioState, this._elapsedTime);
 
     if (currMode?.type === '2d') {
       this._render2d(currModeName, audioState);
@@ -190,7 +214,9 @@ export class Renderer {
     }
 
     const cam = this.camera.update(audioState);
-    const feedbackAlpha = this.feedback.update(audioState);
+    const feedbackAlpha = isEvolving
+      ? (this._evolutionState.genome.feedbackDecay - audioState.beat * 0.025 - this._evolutionState.eventBloom * 0.035)
+      : this.feedback.update(audioState);
 
     // --- Render scene to offscreen FB ---
     this._sceneFB.bind();
@@ -199,7 +225,9 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     // Feedback layer first (trails from previous frame)
-    {
+    if (this._flushFeedbackFrames > 0) {
+      this._flushFeedbackFrames--;
+    } else {
       const prog = this.sm.use('feedback');
       if (prog) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf);
@@ -245,6 +273,16 @@ export class Renderer {
         gl.uniform2f(u['u_res'],             this._sceneFB.width, this._sceneFB.height);
         gl.uniform2f(u['u_camOffset'],       cam.offsetX, cam.offsetY);
         gl.uniform1f(u['u_zoom'],            cam.zoom);
+        gl.uniform1f(u['u_isEvolving'],      isEvolving ? 1 : 0);
+        if (u['u_genome[0]'] && this._evolutionState) {
+          gl.uniform1fv(u['u_genome[0]'], this._evolutionState.genome.toUniformArray(this._genomeUniform));
+        }
+        if (u['u_modeWeights[0]'] && this._evolutionState) {
+          gl.uniform1fv(u['u_modeWeights[0]'], this._evolutionState.modeMix.shaderWeights);
+        }
+        if (u['u_eventBloom']) {
+          gl.uniform1f(u['u_eventBloom'], this._evolutionState?.eventBloom ?? 0);
+        }
 
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
@@ -281,7 +319,9 @@ export class Renderer {
 
     // Post-process to screen
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    const bloomStrength = 0.4 + audioState.mood.energy * 0.4;
+    const bloomStrength = isEvolving
+      ? 0.28 + audioState.mood.energy * 0.42 + this._evolutionState.genome.bloomAmount * 0.22 + this._evolutionState.eventBloom * 0.35
+      : 0.4 + audioState.mood.energy * 0.4;
     this._postProc.apply(this._sceneFB, bloomStrength);
   }
 
@@ -338,19 +378,34 @@ export class Renderer {
     }
   }
 
+  _initKaleidoShards() {
+    this._kaleidoShards = [];
+    for (let i = 0; i < 84; i++) {
+      this._kaleidoShards.push({
+        r: 0.04 + Math.pow(Math.random(), 0.72) * 0.92,
+        a: Math.random() * Math.PI * 0.25,
+        w: 0.012 + Math.random() * 0.04,
+        h: 0.02 + Math.random() * 0.16,
+        band: Math.floor(Math.random() * this._bars2d.length),
+        hue: Math.random(),
+        spin: (Math.random() - 0.5) * 0.8,
+      });
+    }
+  }
+
   _render2d(sceneName, audioState) {
     if (!this.ctx2d || !this.canvas2d) return;
 
     const ctx = this.ctx2d;
     const W = this.canvas2d.width;
     const H = this.canvas2d.height;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
     const energy = Math.min(1, audioState.bass * 0.5 + audioState.mid * 0.3 + audioState.air * 0.2 + audioState.beat * 0.2);
     const speed = 0.35 + energy * 1.8;
     const colA = this._paletteA(audioState);
     const colB = this._paletteB(audioState);
 
-    ctx.fillStyle = `rgba(0,0,0,${0.1 + audioState.mood.tension * 0.08})`;
+    ctx.fillStyle = `rgba(0,0,0,${sceneName === 'Kaleidoscope' ? 0.18 : 0.08 + audioState.mood.tension * 0.07})`;
     ctx.fillRect(0, 0, W, H);
     this._update2dBars(audioState.raw, 1.0 + audioState.mood.energy * 0.8);
 
@@ -439,6 +494,15 @@ export class Renderer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
+    const cx = W / 2;
+    const cy = H / 2;
+    const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * (0.22 + s.bass * 0.16));
+    halo.addColorStop(0, this._mixColor(colA, colB, 0.35, 0.08 + s.bass * 0.12));
+    halo.addColorStop(0.72, this._mixColor(colA, colB, 0.75, 0.018 + s.mid * 0.04));
+    halo.addColorStop(1, this._mixColor(colA, colB, 0.9, 0));
+    ctx.fillStyle = halo;
+    ctx.fillRect(0, 0, W, H);
+
     for (const p of this._particles2d) {
       const wobble = Math.sin(this._elapsedTime * (0.7 + p.seed * 1.5) + p.phase) * (0.012 + s.air * 0.025);
       const radius = p.orbit * (0.78 + bassBloom + wobble);
@@ -511,7 +575,7 @@ export class Renderer {
   }
 
   _drawCircularWave(ctx, W, H, s, radius, color, alpha, dpr, offset = 0) {
-    const data = s.timeRaw || new Uint8Array(2048).fill(128);
+    const data = s.timeRaw || this._silentTimeRaw;
     const cx = W / 2;
     const cy = H / 2;
     ctx.strokeStyle = `rgba(${Math.round(color[0])},${Math.round(color[1])},${Math.round(color[2])},${Math.min(1, alpha + s.beat * 0.3)})`;
@@ -535,30 +599,73 @@ export class Renderer {
   _renderKaleido2d(ctx, W, H, s, colA, colB, dpr) {
     const cx = W / 2;
     const cy = H / 2;
-    const segments = 8;
-    const nBars = 32;
-    const maxReach = Math.min(W, H) * 0.48;
+    const segments = 10;
+    const wedge = Math.PI * 2 / segments;
+    const scale = Math.min(W, H) * 0.5;
+    const rotation = this._elapsedTime * (0.05 + s.mood.energy * 0.12) + s.beat * 0.05;
 
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(this._elapsedTime * (0.22 + s.mood.energy * 0.5) + s.beat * 0.08);
+    ctx.rotate(rotation);
+    ctx.globalCompositeOperation = 'lighter';
+
     for (let seg = 0; seg < segments; seg++) {
       ctx.save();
-      ctx.rotate((Math.PI * 2 / segments) * seg);
+      ctx.rotate(wedge * seg);
       if (seg % 2) ctx.scale(1, -1);
-      for (let i = 0; i < nBars; i++) {
-        const v = this._bars2d[Math.floor(i * this._bars2d.length / nBars)];
-        const angle = (i / nBars) * (Math.PI * 2 / segments);
-        ctx.strokeStyle = this._mixColor(colA, colB, i / nBars, 0.25 + v * 0.9);
-        ctx.lineWidth = (1.5 + v * 5 + s.beat) * dpr;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(-wedge * 0.5) * scale, Math.sin(-wedge * 0.5) * scale);
+      ctx.lineTo(Math.cos(wedge * 0.5) * scale, Math.sin(wedge * 0.5) * scale);
+      ctx.closePath();
+      ctx.clip();
+
+      for (const shard of this._kaleidoShards) {
+        const v = this._bars2d[shard.band] || 0;
+        const rr = shard.r * scale * (0.5 + v * 0.55 + s.bass * 0.12);
+        const aa = shard.a + Math.sin(this._elapsedTime * (0.25 + shard.hue) + shard.spin) * (0.08 + s.air * 0.08);
+        const x = Math.cos(aa) * rr;
+        const y = Math.sin(aa) * rr;
+        const len = scale * shard.h * (0.55 + v * 2.4 + s.beat * 0.6);
+        const wid = scale * shard.w * (0.8 + s.mid * 1.1);
+        const alpha = Math.min(0.78, 0.09 + v * 0.58 + s.beat * 0.12);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(aa + Math.PI * 0.5 + this._elapsedTime * shard.spin * 0.08);
+        const grad = ctx.createLinearGradient(-wid, -len, wid, len);
+        grad.addColorStop(0, this._mixColor(colA, colB, shard.hue, 0));
+        grad.addColorStop(0.48, this._mixColor(colA, colB, shard.hue, alpha));
+        grad.addColorStop(1, this._mixColor(colB, colA, shard.hue, 0));
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        const r1 = Math.min(W, H) * 0.025;
-        ctx.moveTo(Math.cos(angle) * r1, Math.sin(angle) * r1);
-        ctx.lineTo(Math.cos(angle) * (r1 + v * maxReach), Math.sin(angle) * (r1 + v * maxReach));
-        ctx.stroke();
+        ctx.moveTo(0, -len);
+        ctx.lineTo(wid, 0);
+        ctx.lineTo(0, len);
+        ctx.lineTo(-wid, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
+
+      ctx.strokeStyle = this._mixColor(colA, colB, seg / segments, 0.05 + s.highMid * 0.08);
+      ctx.lineWidth = 1 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(scale, 0);
+      ctx.stroke();
       ctx.restore();
     }
+
+    const centerR = scale * (0.025 + s.bass * 0.025 + s.beat * 0.018);
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, centerR * 7);
+    grad.addColorStop(0, this._mixColor(colB, colA, 0.5, 0.65));
+    grad.addColorStop(1, this._mixColor(colA, colB, 0.5, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, centerR * 7, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -595,6 +702,15 @@ export class Renderer {
     }
   }
 
+  setEvolutionControls(controls) {
+    this.evolution.setControls(controls);
+  }
+
+  setLandingActive(active) {
+    this._landingActive = active;
+    if (!active) this._flushFeedbackFrames = 2;
+  }
+
   get currentModeName() { return this._modeNames[this._currModeIdx]; }
   get modeNames() { return this._modeNames; }
 
@@ -606,6 +722,12 @@ export class Renderer {
       shaderMode: VISUAL_MODES[this.currentModeName]?.shaderModeIdx ?? 0,
       transition: this._transition,
       time: this._elapsedTime,
+      evolution: this._evolutionState ? {
+        memorySize: this._evolutionState.memorySize,
+        eventBloom: this._evolutionState.eventBloom,
+        genome: this._evolutionState.genome.toObject(),
+        modeMix: this._evolutionState.modeMix.byName,
+      } : null,
     };
   }
 

@@ -9,6 +9,7 @@ export function Controls({
   onModeSelect,
   onToggleManualPanel,
   onToggleVibePanel,
+  onToggleGenerativePanel,
   onSceneSelect,
   currentSceneName,
   sceneNames = [],
@@ -74,6 +75,13 @@ export function Controls({
         title="Manual controls"
       >
         ⚙
+      </button>
+      <button
+        className="hide-on-min icon-btn"
+        onClick={onToggleGenerativePanel}
+        title="Evolution controls"
+      >
+        ∞
       </button>
       <button
         className="hide-on-min icon-btn"

@@ -6,6 +6,7 @@ export class BeatDetector {
     this.bpm = 0;
     this.dropIntensity = 0;
     this._prevEnergy = 0;
+    this._result = { beat: 0, isKick: false, bpm: 0, dropIntensity: 0 };
   }
 
   update(freqData) {
@@ -22,10 +23,10 @@ export class BeatDetector {
 
       // Estimate BPM from inter-kick intervals
       if (this.kickTimes.length >= 2) {
-        const intervals = [];
+        let intervalSum = 0;
         for (let i = 1; i < this.kickTimes.length; i++)
-          intervals.push(this.kickTimes[i] - this.kickTimes[i - 1]);
-        const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+          intervalSum += this.kickTimes[i] - this.kickTimes[i - 1];
+        const avg = intervalSum / (this.kickTimes.length - 1);
         this.bpm = Math.round(60000 / avg);
       }
 
@@ -40,11 +41,10 @@ export class BeatDetector {
     this.dropIntensity = energyDelta > 0.2 ? energyDelta : this.dropIntensity * 0.9;
     this._prevEnergy = bass;
 
-    return {
-      beat: this.beatValue,
-      isKick,
-      bpm: this.bpm,
-      dropIntensity: this.dropIntensity,
-    };
+    this._result.beat = this.beatValue;
+    this._result.isKick = isKick;
+    this._result.bpm = this.bpm;
+    this._result.dropIntensity = this.dropIntensity;
+    return this._result;
   }
 }

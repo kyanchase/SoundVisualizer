@@ -18,26 +18,22 @@ void main() {
   vec2 texel = 1.0 / u_res;
   vec3 col = texture2D(u_scene, v_uv).rgb;
 
-  // Box blur for bloom
-  vec3 blur = vec3(0.0);
-  float total = 0.0;
-  for (int x = -3; x <= 3; x++) {
-    for (int y = -3; y <= 3; y++) {
-      vec3 s = texture2D(u_scene, v_uv + vec2(float(x), float(y)) * texel * 3.0).rgb;
-      float lum = dot(s, vec3(0.299, 0.587, 0.114));
-      float w = max(0.0, lum - 0.5);
-      blur += s * w;
-      total += w;
-    }
-  }
-  if (total > 0.0) blur /= total;
+  vec3 blur = col * 0.22;
+  blur += texture2D(u_scene, v_uv + vec2( 4.0,  0.0) * texel).rgb * 0.16;
+  blur += texture2D(u_scene, v_uv + vec2(-4.0,  0.0) * texel).rgb * 0.16;
+  blur += texture2D(u_scene, v_uv + vec2( 0.0,  4.0) * texel).rgb * 0.16;
+  blur += texture2D(u_scene, v_uv + vec2( 0.0, -4.0) * texel).rgb * 0.16;
+  blur += texture2D(u_scene, v_uv + vec2( 3.0,  3.0) * texel).rgb * 0.07;
+  blur += texture2D(u_scene, v_uv + vec2(-3.0,  3.0) * texel).rgb * 0.07;
 
-  col += blur * u_strength;
+  float bloomMask = smoothstep(0.18, 0.95, dot(blur, vec3(0.299, 0.587, 0.114)));
+  col = col * 1.32 + blur * bloomMask * u_strength;
 
   // Vignette
   vec2 uv = v_uv * 2.0 - 1.0;
   float vig = 1.0 - dot(uv * 0.5, uv * 0.5);
-  col *= vig;
+  col *= 0.72 + vig * 0.42;
+  col = pow(max(col, vec3(0.0)), vec3(0.88));
 
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }`;

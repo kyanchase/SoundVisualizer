@@ -15,6 +15,15 @@ import {
 
 // Mode order determines auto-transition sequence
 export const VISUAL_MODES = {
+  'Evolving Mode':    {
+    name: 'Evolving Mode',
+    shaderModeIdx: 6,
+    feedbackBase: 0.94,
+    usesRipple: false,
+    usesChladni: false,
+    usesParticles: false,
+    evolving: true,
+  },
   'Wave Terrain':     WaveTerrainMode,
   'Plasma Orb':       PlasmaOrbMode,
   'Prism Void':       NeuralMode,

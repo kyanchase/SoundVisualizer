@@ -40,6 +40,11 @@ export class ShaderManager {
     for (let i = 0; i < nUniforms; i++) {
       const info = gl.getActiveUniform(prog, i);
       uniforms[info.name] = gl.getUniformLocation(prog, info.name);
+      if (info.name.endsWith('[0]')) {
+        uniforms[info.name.slice(0, -3)] = uniforms[info.name];
+      } else if (info.size > 1) {
+        uniforms[`${info.name}[0]`] = uniforms[info.name];
+      }
     }
 
     this._programs[name] = { prog, uniforms };

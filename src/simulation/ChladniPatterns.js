@@ -23,10 +23,13 @@ export class ChladniPatterns extends WaveField {
   getNodalPoints(maxPoints = 200) {
     const points = [];
     const s = this.size;
-    for (let iy = 0; iy < s && points.length < maxPoints; iy += 2) {
-      for (let ix = 0; ix < s && points.length < maxPoints; ix += 2) {
+    const stride = Math.max(2, Math.floor(Math.sqrt((s * s) / Math.max(1, maxPoints * 4))));
+    const offset = Math.floor((this.source.phase * 17) % stride);
+    for (let iy = offset; iy < s; iy += stride) {
+      for (let ix = offset; ix < s; ix += stride) {
         if (this.grid[iy * s + ix] > 0.5) {
           points.push([ix / s, iy / s]);
+          if (points.length >= maxPoints) return points;
         }
       }
     }

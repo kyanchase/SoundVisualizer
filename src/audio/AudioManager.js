@@ -259,21 +259,19 @@ export class AudioManager {
     const beatData = this.beatDetector.update(freqData);
     const mood = this.moodAnalyzer.update(freqData);
 
-    this._state = {
-      bass:         freqData.bass,
-      lowMid:       freqData.lowMid,
-      mid:          freqData.mid,
-      highMid:      freqData.highMid,
-      treble:       freqData.treble,
-      air:          freqData.air,
-      beat:         beatData.beat,
-      bpm:          beatData.bpm,
-      dropIntensity: beatData.dropIntensity,
-      mood,
-      raw:          freqData.raw,
-      timeRaw,
-      active:       true,
-    };
+    this._state.bass = freqData.bass;
+    this._state.lowMid = freqData.lowMid;
+    this._state.mid = freqData.mid;
+    this._state.highMid = freqData.highMid;
+    this._state.treble = freqData.treble;
+    this._state.air = freqData.air;
+    this._state.beat = beatData.beat;
+    this._state.bpm = beatData.bpm;
+    this._state.dropIntensity = beatData.dropIntensity;
+    this._state.mood = mood;
+    this._state.raw = freqData.raw;
+    this._state.timeRaw = timeRaw;
+    this._state.active = true;
     return this._state;
   }
 

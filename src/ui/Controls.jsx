@@ -23,7 +23,12 @@ export function Controls({
 
   return (
     <div id="controller" className={expanded ? 'expanded' : ''}>
-      <div className="status-dot" onClick={() => setExpanded((e) => !e)}></div>
+      <button
+        className="status-dot"
+        onClick={() => setExpanded((e) => !e)}
+        type="button"
+        aria-label={expanded ? 'Collapse controls' : 'Expand controls'}
+      />
       <div className="hide-on-min info-text" id="track-display">
         {trackName}
       </div>
@@ -44,7 +49,12 @@ export function Controls({
 
       {sceneNames.length > 0 && (
       <div className="hide-on-min scene-picker">
-        <button className="scene-btn" onClick={toggleSceneDropdown}>
+        <button
+          className="scene-btn"
+          onClick={toggleSceneDropdown}
+          type="button"
+          aria-expanded={showSceneDropdown}
+        >
           <span id="scene-label">{currentSceneName || currentMode}</span>
           <span className="arrow">▲</span>
         </button>
@@ -72,6 +82,7 @@ export function Controls({
       <button
         className="hide-on-min icon-btn"
         onClick={onToggleManualPanel}
+        type="button"
         title="Manual controls"
       >
         ⚙
@@ -79,6 +90,7 @@ export function Controls({
       <button
         className="hide-on-min icon-btn"
         onClick={onToggleGenerativePanel}
+        type="button"
         title="Evolution controls"
       >
         ∞
@@ -86,6 +98,7 @@ export function Controls({
       <button
         className="hide-on-min icon-btn"
         onClick={onToggleVibePanel}
+        type="button"
         title="Vibes"
       >
         ✦
@@ -94,6 +107,8 @@ export function Controls({
         className="hide-on-min icon-btn primary"
         id="pause-btn"
         onClick={onTogglePlayback}
+        type="button"
+        aria-label={isPaused ? 'Resume playback' : 'Pause playback'}
       >
         {isPaused ? '▶' : '❚❚'}
       </button>

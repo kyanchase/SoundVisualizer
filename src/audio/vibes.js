@@ -1,7 +1,7 @@
 export const VIBES = {
   neutral: {
     label: 'Neutral',
-    mark: '◆',
+    mark: 'BASE',
     sub: 'original',
     audio: {
       tempo: 1,
